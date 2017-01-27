@@ -3,89 +3,93 @@ package com.handoitadsf.line.group_guard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.Set;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import io.cslinmiso.line.model.LineClient;
 import io.cslinmiso.line.model.LineGroup;
-import line.thrift.OpType;
-import line.thrift.Operation;
 
 /**
  * Created by cahsieh on 1/26/17.
  */
-public class Defender {
+public class Defender implements GuardRole {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Defender.class);
 
     private static final int SCHEDULED_THREAD_POOL_CORE_SIZE = 1;
     private static final long STATE_UPDATE_DELAY_MS = 1000 * 30;
-    private static final int NUM_FETCH_OPERATIONS = 100;
+
+    private static final int PRIORITY_STATE_FETCH = 1;
+    private static final int PRIORITY_OPERATION_FETCH = 5;
 
     private boolean running = false;
     private final LineClient client;
-    private final List<LineGroup> groups = new ArrayList<LineGroup>();
-    private ScheduledExecutorService scheduledExecutor;
+    private PrioritizedExecutor executor;
+    private GroupsUpdateListener groupsUpdateListener;
+
     public Defender(Account account) {
         this.client = account.getClient();
     }
+
     public void start() {
         if (running) {
             throw new IllegalStateException("It is already running");
         }
         init();
+    }
 
+    public void setGroupsUpdateListener(GroupsUpdateListener listener) {
+        this.groupsUpdateListener = listener;
     }
 
     private void init() {
-        scheduledExecutor = new ScheduledThreadPoolExecutor(SCHEDULED_THREAD_POOL_CORE_SIZE);
+        executor = new PrioritizedExecutor();
+        OperationFetcher operationFetcher = new OperationFetcher(this, PRIORITY_OPERATION_FETCH);
+        operationFetcher.setListener(new PrioritizedTask.Listener() {
+            @Override
+            public void onStop() {
+                executor.submit(operationFetcher);
+            }
+
+            @Override
+            public void onStop(@Nonnull Throwable throwable) {
+                LOGGER.error("Fail to fetch operations. Retry later. ", throwable);
+                onStop();
+            }
+        });
+        executor.submit(operationFetcher);
+
+        GroupRefresher groupRefresher = new GroupRefresher(this, PRIORITY_STATE_FETCH);
+        groupRefresher.setListener(new PrioritizedTask.Listener() {
+            @Override
+            public void onStop(@Nonnull Throwable error) {
+                LOGGER.error("Fail to refresh groups. Retry later. ", error);
+                executor.submit(groupRefresher);
+            }
+
+            @Override
+            public void onStop() {
+                if (groupsUpdateListener != null) {
+                    groupsUpdateListener.onGroupsUpdate(Defender.this, client.getGroups());
+                }
+            }
+        });
+        executor.submit(groupRefresher);
     }
 
     public void stop() {
         if (!running) {
             throw new IllegalStateException("It is already stopped");
         }
-        scheduledExecutor.shutdown();
-        scheduledExecutor = null;
+        executor.shutdown();
+        executor = null;
     }
 
-    private class StateFetcher implements Runnable {
-
-        public void run() {
-            try {
-                client.refreshGroups();
-            } catch (Exception ex) {
-                LOGGER.error("Fail to refresh groups: ", ex);
-            }
-        }
-    }
-
-    private class OperationFetcher implements Runnable {
-
-        public void run() {
-            try {
-                List<Operation> operations = client.getApi().fetchOperations(
-                    client.getRevision(), NUM_FETCH_OPERATIONS);
-                for (Operation operation : operations) {
-
-                    OpType opType = operation.getType();
-                    switch (opType) {
-                        case NOTIFIED_INVITE_INTO_GROUP:
-                            // The current user has been invited to join a group.
-
-                        case ACCEPT_GROUP_INVITATION:
-                            // The current user has accepted a group invitation
-                        case LEAVE_GROUP:
-                            // The current user has left a group.
-                    }
-
-                    client.setRevision(Math.max(client.getRevision(), operation.getRevision()));
-                }
-            } catch (Exception ex) {
-
-            }
-        }
+    @Override
+    public List<LineGroup> getGroups() {
+        return client.getGroups();
     }
 }

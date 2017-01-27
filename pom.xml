@@ -31,6 +31,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>RELEASE</version>
+        </dependency>
+
+        <dependency>
             <groupId>line.thrift</groupId>
             <artifactId>thrift-line-talkservice</artifactId>
             <version>1.0</version>
