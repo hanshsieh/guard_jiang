@@ -19,13 +19,12 @@ public abstract class PrioritizedTask {
         this.listener = listener;
     }
 
-    public abstract void run() throws ExecutionException;
+    public abstract void run() throws Exception;
 
     public void start() {
         if (listener != null) {
             listener.onStart();
         }
-        Throwable error = null;
         try {
             run();
             if (listener != null) {

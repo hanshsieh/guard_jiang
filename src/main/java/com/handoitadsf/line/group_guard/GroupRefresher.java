@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory;
  * Created by cahsieh on 1/27/17.
  */
 class GroupRefresher extends PrioritizedTask {
-    private static final Logger LOGGER = LoggerFactory.getLogger(GroupRefresher.class);
 
     private final GuardRole role;
 
@@ -16,13 +15,8 @@ class GroupRefresher extends PrioritizedTask {
         this.role = role;
     }
 
-    public void run() {
-        try {
-            role.getLineClient().refreshGroups();
-        } catch (Exception ex) {
-            LOGGER.error("Fail to refresh groups: ", ex);
-        } finally {
-            role.addTask(new GroupRefresher(role, getPriority()));
-        }
+    @Override
+    public void run() throws Exception {
+        role.refreshGroups();
     }
 }

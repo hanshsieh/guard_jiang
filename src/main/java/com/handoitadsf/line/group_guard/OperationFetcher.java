@@ -1,51 +1,97 @@
 package com.handoitadsf.line.group_guard;
 
-import com.handoitadsf.line.group_guard.PrioritizedTask.Listener;
-
+import java.io.IOException;
 import java.util.List;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import io.cslinmiso.line.model.LineClient;
-import line.thrift.OpType;
 import line.thrift.Operation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Created by cahsieh on 1/27/17.
  */
-class OperationFetcher extends PrioritizedTask {
+class OperationFetcher {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(OperationFetcher.class);
     private static final int NUM_FETCH_OPERATIONS = 50;
-    private final GuardRole role;
+    private final Account account;
+    private OperationListener operationListener;
+    private Fetcher fetcher;
 
-    public OperationFetcher(@Nonnull GuardRole role, int priority) {
-        super(priority);
-        this.role = role;
+    public OperationFetcher(@Nonnull Account account) {
+        this.account = account;
+    }
+    public void setOperationListener(
+            @Nullable OperationListener operationListener) {
+        this.operationListener = operationListener;
     }
 
-    public void run() {
-        try {
-            LineClient client = role.getLineClient();
-            List<Operation> operations = client.getApi().fetchOperations(
-                client.getRevision(), NUM_FETCH_OPERATIONS);
-            for (Operation operation : operations) {
+    public void start() throws IOException {
+        if (fetcher != null) {
+            throw new IllegalStateException("Already started");
+        }
+        long revision = account.getLastOpRevision();
+        fetcher = new Fetcher(revision);
+        fetcher.start();
+    }
 
-                OpType opType = operation.getType();
-                switch (opType) {
-                    case NOTIFIED_INVITE_INTO_GROUP:
-                        // The current user has been invited to join a group.
+    public void stop() {
+        if (fetcher == null) {
+            throw new IllegalStateException("Already stopped");
+        }
+        fetcher.shouldStop();
+        fetcher = null;
+    }
 
-                    case ACCEPT_GROUP_INVITATION:
-                        // The current user has accepted a group invitation
-                    case LEAVE_GROUP:
-                        // The current user has left a group.
-                }
+    private class Fetcher extends Thread {
 
-                client.setRevision(Math.max(client.getRevision(), operation.getRevision()));
+        private long SLEEP_MS = 1000 * 5;
+        private boolean shouldStop = false;
+        private long revision;
+
+        public Fetcher(long revision) {
+            this.revision = revision;
+        }
+        public void shouldStop() {
+            this.shouldStop = true;
+            interrupt();
+        }
+        private void sleep() {
+            try {
+                LOGGER.debug("Sleeping for {} ms", SLEEP_MS);
+                Thread.sleep(SLEEP_MS);
+            } catch (InterruptedException ex) {
+                LOGGER.warn("Interrupted from sleeping", ex);
             }
-        } catch (Exception ex) {
+        }
 
+        @Override
+        public void run() {
+            try {
+                while (!shouldStop) {
+                    try {
+                        LOGGER.debug("Send fetching operations request for account {} with revision {}",
+                                account.getProfile().getMid(), revision);
+                        List<Operation> operations = account.fetchOperations(
+                                revision, NUM_FETCH_OPERATIONS);
+                        for (Operation operation : operations) {
+                            if (operationListener != null) {
+                                operationListener.onOperation(operation);
+                            }
+                            revision = Math.max(revision, operation.getRevision());
+                        }
+                    } catch (Throwable ex) {
+                        LOGGER.error("Error occurs when fetching operations. Retry later...", ex);
+                        sleep();
+                    }
+                }
+            } finally {
+                 LOGGER.info("Fetcher stops");
+            }
         }
     }
+
 }
