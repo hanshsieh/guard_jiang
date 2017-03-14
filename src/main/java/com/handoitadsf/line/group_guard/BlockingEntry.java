@@ -6,10 +6,10 @@ import java.time.Instant;
 /**
  * Created by someone on 1/31/2017.
  */
-public class BlockedAccount {
+public class BlockingEntry {
     private final String accountId;
     private final Instant createTime;
-    public BlockedAccount(@Nonnull String accountId) {
+    public BlockingEntry(@Nonnull String accountId) {
         this.accountId = accountId;
         this.createTime = Instant.now();
     }

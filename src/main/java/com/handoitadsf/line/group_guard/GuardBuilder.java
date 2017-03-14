@@ -18,7 +18,7 @@ public class GuardBuilder {
     private final Map<String, Account> accounts = new HashMap<>();
 
     // Set of group ID's
-    private final Set<String> groups = new HashSet<>();
+    private final Map<String, GroupProfile> groups = new HashMap<>();
     private final Map<Relation, Role> userRoles = new HashMap<>();
 
     public GuardBuilder addAccount(@Nonnull Account account) throws IOException {
@@ -30,19 +30,17 @@ public class GuardBuilder {
         return this;
     }
 
-    public GuardBuilder addGroup(@Nonnull String groupId) {
-        if (groups.contains(groupId)) {
+    public GuardBuilder addGroup(@Nonnull GroupProfile groupProfile) {
+        String groupId = groupProfile.getGroupId();
+        if (groups.containsKey(groupId)) {
             throw new IllegalStateException("Group " + groupId + " already exists");
         }
-        groups.add(groupId);
+        groups.put(groupId, groupProfile);
         return this;
     }
 
     public GuardBuilder addRole(@Nonnull String userId, @Nonnull String groupId, @Nonnull Role role) {
-        if (!accounts.containsKey(userId)) {
-            throw new IllegalStateException("User " + userId + " not added");
-        }
-        if (!groupId.contains(groupId)) {
+        if (!groups.containsKey(groupId)) {
             throw new IllegalStateException("Group " + groupId + " not added");
         }
         Relation relation = new Relation(userId, groupId);

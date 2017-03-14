@@ -9,7 +9,9 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.PortUnreachableException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -45,38 +47,27 @@ public class Guard {
     private boolean started = false;
 
     Guard(
-            @Nonnull Map<String, Account> accounts,
-            @Nonnull Set<String> groups,
+            @Nonnull Collection<Account> accounts,
+            @Nonnull Map<String, GroupProfile> groups,
             @Nonnull Map<Relation, Role> roles) throws IOException {
         this.accountMgrs = accounts
-                .entrySet()
                 .stream()
                 .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> new AccountManager(this, entry.getValue())
+                        account -> {
+                            try {
+                                return account.getProfile().getMid();
+                            } catch (IOException ex) {
+                                throw new RuntimeException("Fail to get profile", ex);
+                            }
+                        },
+                        account -> new AccountManager(this, account)
                         ));
-        this.groupProfiles = groups
-                .stream()
-                .collect(Collectors.toMap(groupId -> groupId, groupId -> new GroupProfile(groupId)));
-        this.roles = roles
-                .entrySet()
-                .stream()
-                .filter(entry -> !Role.SUPPORTER.equals(entry.getValue()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        this.groupProfiles = new HashMap<>(groups);
+        this.roles = new HashMap<>(roles);
 
-        // Set of defender user ID's
-        Set<String> defenders = roles
-                .entrySet()
-                .stream()
-                .filter(entry -> Role.DEFENDER.equals(entry.getValue()))
-                .collect(Collectors.mapping(entry -> entry.getKey().getUserId(), Collectors.toSet()));
-
-        // For each account with a defender role in at least one of the group
+        // For each account
         for (AccountManager accountManager : this.accountMgrs.values()) {
             Account account = accountManager.getAccount();
-            if (!defenders.contains(account.getProfile().getMid())) {
-                break;
-            }
 
             // Setup a OperationFetcher for the account
             OperationFetcher opFetcher = new OperationFetcher(account);
