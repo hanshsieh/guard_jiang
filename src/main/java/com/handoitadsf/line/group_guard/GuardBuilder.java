@@ -53,6 +53,6 @@ public class GuardBuilder {
     }
 
     public Guard build() throws IOException {
-        return new Guard(accounts, groups, userRoles);
+        return new Guard(accounts.values(), groups.values(), userRoles);
     }
 }

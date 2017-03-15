@@ -1,5 +1,6 @@
 package com.handoitadsf.line.group_guard;
 
+import com.google.common.collect.ImmutableSet;
 import line.thrift.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -29,10 +31,6 @@ import java.util.stream.Collectors;
 public class Guard {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Guard.class);
-    private static final int THREAD_CORE_POOL_SIZE = 0;
-    private static final int THREAD_MAX_POOL_SIZE = 100;
-    private static final int THREAD_QUEUE_SIZE = 1000;
-    private static final long THREAD_KEEP_ALIVE_MS = 1000 * 30;
 
     private final Map<String, AccountManager> accountMgrs;
     private final List<OperationFetcher> opFetchers = new ArrayList<>();
@@ -43,12 +41,11 @@ public class Guard {
     // A map from group ID to the defenders in the group
     private final Map<String, Set<String>> groupDefenders;
     private final Map<Relation, Role> roles;
-    private ExecutorService executor;
     private boolean started = false;
 
     Guard(
             @Nonnull Collection<Account> accounts,
-            @Nonnull Map<String, GroupProfile> groups,
+            @Nonnull Collection<GroupProfile> groups,
             @Nonnull Map<Relation, Role> roles) throws IOException {
         this.accountMgrs = accounts
                 .stream()
@@ -62,7 +59,9 @@ public class Guard {
                         },
                         account -> new AccountManager(this, account)
                         ));
-        this.groupProfiles = new HashMap<>(groups);
+        this.groupProfiles = groups.stream()
+                .collect(Collectors.toMap(GroupProfile::getGroupId, groupProfile -> groupProfile));
+
         this.roles = new HashMap<>(roles);
 
         // For each account
@@ -88,15 +87,6 @@ public class Guard {
             throw new IllegalStateException("Already started");
         }
         started = true;
-        if (executor != null) {
-            executor.shutdown();
-        }
-        executor = new ThreadPoolExecutor(
-                THREAD_CORE_POOL_SIZE,
-                THREAD_MAX_POOL_SIZE,
-                THREAD_KEEP_ALIVE_MS,
-                TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(THREAD_QUEUE_SIZE));
         for (OperationFetcher opFetcher : opFetchers) {
             try {
                 opFetcher.start();
@@ -117,24 +107,12 @@ public class Guard {
                 LOGGER.error("An OperationFetcher seems to have been stopped before", ex);
             }
         }
-        if (executor != null) {
-            executor.shutdown();
-            executor = null;
-        }
         started = false;
     }
 
     @Nullable
     public Role getRole(@Nonnull String userId, @Nonnull String groupId) {
-        if (!accountMgrs.containsKey(userId) || !groupProfiles.containsKey(groupId)) {
-            return null;
-        }
-        Role role = roles.get(new Relation(userId, groupId));
-        if (role == null) {
-            return Role.SUPPORTER;
-        } else {
-            return role;
-        }
+        return roles.get(new Relation(userId, groupId));
     }
 
     @Nonnull
@@ -143,39 +121,19 @@ public class Guard {
     }
 
     @Nonnull
-    public Set<String> getSupportersOfGroup(@Nonnull String groupId) {
-        return getAccountIds().stream().filter(id ->
-            !roles.containsKey(new Relation(id, groupId))
-        ).collect(Collectors.toSet());
+    public Set<String> getGroupRoleMembers(@Nonnull String groupId, @Nonnull Role role) {
+        return roles.entrySet()
+                .stream()
+                .filter(entry ->
+                        // Filter out the users with the role and group
+                        groupId.equals(entry.getKey().getGroupId()) &&
+                                role.equals(entry.getValue()))
+                .map(entry -> entry.getKey().getUserId())
+                .collect(Collectors.toSet());
     }
 
-    @Nonnull
-    public Set<String> getDefendersOfGroup(@Nonnull String groupId) {
-        Set<String> defenderIds = groupDefenders.get(groupId);
-        if (defenderIds == null) {
-            return Collections.emptySet();
-        } else {
-            return Collections.unmodifiableSet(defenderIds);
-        }
-    }
-
-    @Nonnull
+    @Nullable
     public GroupProfile getGroupProfile(@Nonnull String groupId) {
-        GroupProfile groupProfile = groupProfiles.get(groupId);
-        if (groupProfile == null) {
-            throw new IllegalArgumentException("Group ID " + groupId + " isn't managed by this instance");
-        }
-        return groupProfile;
-    }
-
-    public void submitOperation(@Nonnull String userId, @Nonnull Operation operation) {
-        if (!started) {
-            throw new IllegalStateException("Not yet started");
-        }
-        AccountManager accountManager = accountMgrs.get(userId);
-        if (accountManager == null) {
-            throw new IllegalArgumentException("User " + userId + " isn't managed by this instance");
-        }
-        executor.submit(new OperationDispatcher(accountManager, operation));
+        return groupProfiles.get(groupId);
     }
 }

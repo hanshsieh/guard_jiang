@@ -6,6 +6,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -29,7 +30,7 @@ public class GroupProfile {
     }
 
     public Set<String> getAdminIds() {
-        synchronized (adminIds){
+        synchronized (adminIds) {
             return ImmutableSet.copyOf(adminIds);
         }
     }
@@ -49,7 +50,12 @@ public class GroupProfile {
     @Nullable
     public BlockingEntry getBlockingEntry(@Nonnull String userId) {
         synchronized (blockedAccounts) {
-            return blockedAccounts.get(userId);
+            BlockingEntry entry = blockedAccounts.get(userId);
+            if (entry != null && entry.isExpired()) {
+                blockedAccounts.remove(userId);
+                return null;
+            }
+            return entry;
         }
     }
 
@@ -63,6 +69,13 @@ public class GroupProfile {
     public void addBlockedUser(@Nonnull String userId) {
         synchronized (blockedAccounts) {
             blockedAccounts.put(userId, new BlockingEntry(userId));
+            Iterator<Map.Entry<String, BlockingEntry>> iterator = blockedAccounts.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<String, BlockingEntry> entry = iterator.next();
+                if (entry.getValue().isExpired()) {
+                    iterator.remove();
+                }
+            }
         }
     }
 }

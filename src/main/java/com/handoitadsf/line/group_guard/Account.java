@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import io.cslinmiso.line.model.LineClient;
 import io.cslinmiso.line.model.LineGroup;
@@ -47,6 +48,16 @@ public class Account {
         } catch (Exception ex) {
             throw new IOException("Fail to get groups", ex);
         }
+    }
+
+    @Nullable
+    public LineGroup getGroup(@Nonnull String groupId) throws IOException {
+        for (LineGroup group : getGroups()) {
+            if (group.getId().equals(groupId)) {
+                return group;
+            }
+        }
+        return null;
     }
 
     @Nonnull
