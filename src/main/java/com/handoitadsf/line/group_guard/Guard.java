@@ -33,13 +33,10 @@ public class Guard {
     private static final Logger LOGGER = LoggerFactory.getLogger(Guard.class);
 
     private final Map<String, AccountManager> accountMgrs;
-    private final List<OperationFetcher> opFetchers = new ArrayList<>();
 
     // A map from group ID to group profile
     private final Map<String, GroupProfile> groupProfiles;
 
-    // A map from group ID to the defenders in the group
-    private final Map<String, Set<String>> groupDefenders;
     private final Map<Relation, Role> roles;
     private boolean started = false;
 
@@ -50,59 +47,36 @@ public class Guard {
         this.accountMgrs = accounts
                 .stream()
                 .collect(Collectors.toMap(
-                        account -> {
-                            try {
-                                return account.getProfile().getMid();
-                            } catch (IOException ex) {
-                                throw new RuntimeException("Fail to get profile", ex);
-                            }
-                        },
+                        Account::getMid,
                         account -> new AccountManager(this, account)
                         ));
         this.groupProfiles = groups.stream()
                 .collect(Collectors.toMap(GroupProfile::getGroupId, groupProfile -> groupProfile));
 
         this.roles = new HashMap<>(roles);
-
-        // For each account
-        for (AccountManager accountManager : this.accountMgrs.values()) {
-            Account account = accountManager.getAccount();
-
-            // Setup a OperationFetcher for the account
-            OperationFetcher opFetcher = new OperationFetcher(account);
-            opFetcher.setOperationListener(accountManager);
-            opFetchers.add(opFetcher);
-        }
-
-        this.groupDefenders = roles.entrySet()
-                .stream()
-                .filter(entry -> Role.DEFENDER.equals(entry.getValue())) // Filter out the defenders
-                .map(Map.Entry::getKey) // Get a stream of relations for defender role
-                .collect(Collectors.groupingBy(Relation::getGroupId, // Collect the result by group ID
-                        Collectors.mapping(Relation::getUserId, Collectors.toSet())));
     }
 
-    public void start() throws IOException, IllegalStateException {
+    public synchronized void start() throws IOException, IllegalStateException {
         if (started) {
             throw new IllegalStateException("Already started");
         }
         started = true;
-        for (OperationFetcher opFetcher : opFetchers) {
+        for (AccountManager accountManager : accountMgrs.values()) {
             try {
-                opFetcher.start();
+                accountManager.start();
             } catch (IllegalStateException ex) {
                 LOGGER.error("An OperationFetcher seems to have been started before", ex);
             }
         }
     }
 
-    public void stop() throws IllegalStateException {
+    public synchronized void stop() throws IllegalStateException {
         if (!started) {
             throw new IllegalStateException("Already stopped");
         }
-        for (OperationFetcher opFetcher : opFetchers) {
+        for (AccountManager accountManager : accountMgrs.values()) {
             try {
-                opFetcher.stop();
+                accountManager.stop();
             } catch (IllegalStateException ex) {
                 LOGGER.error("An OperationFetcher seems to have been stopped before", ex);
             }

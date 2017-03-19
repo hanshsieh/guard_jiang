@@ -1,60 +1,163 @@
 package com.handoitadsf.line.group_guard;
 
-import com.google.common.collect.Lists;
+import io.cslinmiso.line.model.LineContact;
 import io.cslinmiso.line.model.LineGroup;
+import line.thrift.Contact;
+import line.thrift.Group;
 import line.thrift.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * Created by someone on 1/31/2017.
  */
-class AccountManager implements OperationListener {
+class AccountManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AccountManager.class);
-
+    private static final int THREAD_NAME_MID_PREFIX_LEN = 5;
+    private static final long SUPPORTING_MS = 1000 * 60 * 5;
     private Guard guard;
     private final Account account;
+    private AccountWatcher watcher;
+    private Instant lastRectifyTime = null;
+
+    // A map from group ID to the time when I joined the group
+    private Map<String, Instant> groupJoinedTime = new HashMap<>();
 
     public AccountManager(Guard guard, @Nonnull Account account) {
         this.guard = guard;
         this.account = account;
     }
 
-    private String getId() throws IOException {
-        return account.getProfile().getMid();
+    public synchronized void start() {
+        if (watcher != null) {
+            throw new IllegalStateException("Already started");
+        }
+        watcher = new AccountWatcher(this);
+        watcher.setName("mid-" + account.getMid().substring(0, THREAD_NAME_MID_PREFIX_LEN));
+        watcher.start();
     }
 
-    @Override
-    public void onOperation(@Nonnull Operation operation) {
-        try {
-            switch (operation.getType()) {
-                case NOTIFIED_INVITE_INTO_GROUP:
-                    onNotifiedInviteIntoGroup(
-                            operation.getParam1(), operation.getParam2(), operation.getParam3());
-                    break;
-                case ACCEPT_GROUP_INVITATION:
-                    onAcceptGroupInvitation(operation.getParam1());
-                    break;
-                case NOTIFIED_KICKOUT_FROM_GROUP:
-                    onNotifiedKickOutFromGroup(
-                            operation.getParam1(), operation.getParam2(), operation.getParam3());
-                    break;
-                case LEAVE_ROOM:
-                    onLeaveGroup(operation.getParam1());
-                    break;
+    public synchronized void stop() {
+        if (watcher == null) {
+            throw new IllegalStateException("Already stopped");
+        }
+        watcher.shouldStop();
+        watcher = null;
+    }
+
+    private String getId() {
+        return account.getMid();
+    }
+
+    @Nullable
+    Instant getLastRectifyTime() {
+        return lastRectifyTime;
+    }
+
+    void rectifyStatus() throws IOException {
+        LOGGER.debug("Rectifying status");
+        long now = System.currentTimeMillis();
+        String myId = account.getMid();
+        List<String> groupIdsJoined = account.getGroupIdsJoined();
+        for (String groupId : groupIdsJoined) {
+            Role role = guard.getRole(myId, groupId);
+
+            boolean shouldLeave = false;
+            if (Role.SUPPORTER.equals(role)) {
+                Instant joinedTime = groupJoinedTime.get(groupId);
+                if (joinedTime == null ||
+                    now - joinedTime.toEpochMilli() > SUPPORTING_MS) {
+                    shouldLeave = true;
+                }
+            } else if (!shouldAcceptInvitation(role)) {
+                shouldLeave = true;
             }
-        } catch (IOException ex) {
-            LOGGER.error("Fail to execute operation {}", operation, ex);
+            if (shouldLeave) {
+                account.leaveGroup(groupId);
+            }
+        }
+
+        List<String> groupIdsInvited = account.getGroupIdsInvited();
+        for (String groupId : groupIdsInvited) {
+            Role role = guard.getRole(myId, groupId);
+            if (shouldAcceptInvitation(role)) {
+                account.acceptGroupInvitation(groupId);
+            }
+            account.rejectGroupInvitation(groupId);
+        }
+        lastRectifyTime = Instant.now();
+    }
+
+    void onOperation(@Nonnull Operation operation) throws IOException {
+        if (operation.getType() == null) {
+            return;
+        }
+        switch (operation.getType()) {
+
+            // Another user invites someone (maybe myself) into a group
+            case NOTIFIED_INVITE_INTO_GROUP:
+                onNotifiedInviteIntoGroup(
+                        operation.getParam1(), operation.getParam2(), operation.getParam3());
+                break;
+
+            // I have invited another user to a group
+            case INVITE_INTO_GROUP:
+                onInviteIntoGroup(operation.getParam1(), operation.getParam2());
+                break;
+
+            // I have accepted a group invitation
+            case ACCEPT_GROUP_INVITATION:
+                onAcceptGroupInvitation(operation.getParam1());
+                break;
+
+            // Another user accepts a group invitation
+            // Including via invitation link
+            case NOTIFIED_ACCEPT_GROUP_INVITATION:
+                onNotifiedAcceptGroupInvitation(operation.getParam1(), operation.getParam2());
+                break;
+
+            case NOTIFIED_KICKOUT_FROM_GROUP:
+                onNotifiedKickOutFromGroup(
+                        operation.getParam1(), operation.getParam2(), operation.getParam3());
+                break;
+            case LEAVE_GROUP:
+                onLeaveGroup(operation.getParam1());
+        }
+    }
+
+    /**
+     * It should be invoked when the user him self has been invited into a group.
+     * @param groupId Group ID.
+     * @throws IOException IO error occurs.
+     */
+    private void onInvitedIntoGroup(@Nonnull String groupId)
+        throws IOException {
+        String myId = getId();
+
+        // Get my role in the group
+        Role myRole = guard.getRole(myId, groupId);
+        if (!shouldAcceptInvitation(myRole)) {
+
+            // I don't have role in the group
+            // Cancel the invitation
+            account.rejectGroupInvitation(groupId);
+        } else {
+
+            // I'm defender or supporter of the group, so I should join the group
+            account.acceptGroupInvitation(groupId);
         }
     }
 
@@ -62,56 +165,95 @@ class AccountManager implements OperationListener {
      * Someone has invited another user into a group.
      *
      * @param groupId   Group ID.
-     * @param inviterId Inviter's ID.
+     * @param inviterId Inviter's ID. Not myself.
      * @param inviteeId Invitee's ID.
      * @throws IOException
      */
-    public void onNotifiedInviteIntoGroup(
+    private void onNotifiedInviteIntoGroup(
             @Nonnull String groupId,
             @Nonnull String inviterId,
             @Nonnull String inviteeId) throws IOException {
         LOGGER.info("{} invites {} into group {}", inviterId, inviteeId, groupId);
         String myId = getId();
 
-        if (!myId.equals(inviteeId)) {
-
-            GroupProfile groupProfile = guard.getGroupProfile(groupId);
-            if (groupProfile == null) {
-                return;
-            }
-
-            BlockingEntry blockingEntry = groupProfile.getBlockingEntry(inviteeId);
-            if (blockingEntry == null) {
-                return;
-            }
-
-            Role inviterRole = guard.getRole(inviterId, groupId);
-
-            if (Role.DEFENDER.equals(inviterRole) || Role.SUPPORTER.equals(inviterRole)) {
-                return;
-            }
-            account.cancelGroupInvitation(groupId, Collections.singletonList(inviteeId));
-            account.kickOutFromGroup(groupId, Collections.singletonList(inviterId));
-            groupProfile.addBlockedUser(inviterId);
-
+        if (myId.equals(inviteeId)) {
+            onInvitedIntoGroup(groupId);
             return;
         }
 
-        // Get my role in the group
-        Role myRole = guard.getRole(myId, groupId);
-        if (myRole == null) {
-
-            // I don't have role in the group
-            // Cancel the invitation
-            account.cancelGroupInvitation(groupId, Collections.singletonList(myId));
-        } else if (Role.DEFENDER.equals(myRole)) {
-
-            // I'm defender of the group, so I should join the group
-            account.acceptGroupInvitation(groupId);
+        GroupProfile groupProfile = guard.getGroupProfile(groupId);
+        if (groupProfile == null) {
+            return;
         }
 
-        // If I'm supporter of the group, do nothing.
-        // Just leave the invitation there.
+        // Check if the invitee is in the black list
+        BlockingEntry blockingEntry = groupProfile.getBlockingEntry(inviteeId);
+        if (blockingEntry == null) {
+            return;
+        }
+
+        Role inviterRole = guard.getRole(inviterId, groupId);
+
+        account.cancelGroupInvitation(groupId, Collections.singletonList(inviteeId));
+
+        // If the inviter is our own fellow
+        if (Role.DEFENDER.equals(inviterRole) || Role.SUPPORTER.equals(inviterRole)) {
+            LOGGER.warn("{} has role {} but has invited blocked user {} to group {}",
+                    inviterId,
+                    inviterRole,
+                    inviteeId,
+                    groupId);
+            return;
+        }
+        account.kickOutFromGroup(groupId, Collections.singletonList(inviterId));
+        groupProfile.addBlockedUser(inviterId);
+    }
+
+    /**
+     * I have invited another user into a group.
+     *
+     * @param groupId Group ID.
+     * @param inviteeId Invitee's ID.
+     * @throws IOException IO error occurs.
+     */
+    private void onInviteIntoGroup(@Nonnull String groupId, @Nonnull String inviteeId)
+            throws IOException {
+
+        LOGGER.info("User {} invites {} into group {}", account.getMid(), inviteeId, groupId);
+
+        GroupProfile groupProfile = guard.getGroupProfile(groupId);
+        if (groupProfile == null) {
+            account.cancelGroupInvitation(groupId, Collections.singletonList(inviteeId));
+            return;
+        }
+
+        // Check if the invitee is in the black list
+        BlockingEntry blockingEntry = groupProfile.getBlockingEntry(inviteeId);
+        if (blockingEntry != null) {
+            account.cancelGroupInvitation(groupId, Collections.singletonList(inviteeId));
+        }
+    }
+
+    private void onLeaveGroup(@Nonnull String groupId) throws IOException {
+        LOGGER.info("User {} leaves group {}", account.getMid(), groupId);
+        groupJoinedTime.remove(groupId);
+    }
+
+    private boolean shouldAcceptInvitation(Role role) {
+        return Role.DEFENDER.equals(role) || Role.SUPPORTER.equals(role);
+    }
+
+    private void updateGroupAdmin(@Nonnull String groupId) throws IOException {
+        GroupProfile groupProfile = guard.getGroupProfile(groupId);
+        Group group = account.getGroup(groupId);
+        if (groupProfile == null || group == null) {
+            return;
+        }
+        Contact creator = group.getCreator();
+        if (creator == null) {
+            return;
+        }
+        groupProfile.addAdminIdIfEmpty(creator.getMid());
     }
 
     /**
@@ -119,17 +261,21 @@ class AccountManager implements OperationListener {
      *
      * @param groupId Group ID.
      */
-    public void onAcceptGroupInvitation(@Nonnull String groupId) throws IOException {
+    private void onAcceptGroupInvitation(@Nonnull String groupId) throws IOException {
+
+        groupJoinedTime.put(groupId, Instant.now());
 
         String myId = getId();
 
         LOGGER.info("User {} has accepted invitation into group {}", myId, groupId);
 
+        updateGroupAdmin(groupId);
+
         // Get my role in the group
         Role role = guard.getRole(myId, groupId);
 
-        // I don't have any role in this group
-        if (role == null) {
+        // I don't have accepted the group invitation
+        if (!shouldAcceptInvitation(role)) {
 
             // Leave the group
             account.leaveGroup(groupId);
@@ -147,18 +293,30 @@ class AccountManager implements OperationListener {
             // TODO If someone is already in group, will it fails? Will it continue for the remaining groups?
             account.inviteIntoGroup(groupId, new ArrayList<>(otherDefenderIds));
         }
-        account.refreshGroups();
+    }
+
+    private void onNotifiedAcceptGroupInvitation(@Nonnull String groupId, @Nonnull String inviteeId)
+        throws IOException {
+        GroupProfile groupProfile = guard.getGroupProfile(groupId);
+        if (groupProfile == null) {
+            return;
+        }
+
+        BlockingEntry blockingEntry = groupProfile.getBlockingEntry(inviteeId);
+        if (blockingEntry != null) {
+            account.kickOutFromGroup(groupId, Collections.singletonList(inviteeId));
+        }
     }
 
     /**
-     * A user has kicked out another user from a group.
+     * Another user has kicked out another user (maybe myself) from a group.
      *
      * @param groupId   ID of the group.
      * @param removerId ID of the user that kick out another user.
      * @param removedId ID of the user that is kicked out.
      * @throws IOException IO error occurs.
      */
-    public void onNotifiedKickOutFromGroup(
+    private void onNotifiedKickOutFromGroup(
             @Nonnull String groupId, @Nonnull String removerId, @Nonnull String removedId) throws IOException {
 
         LOGGER.info("User {} has kicked out user {} from group {}", removerId, removedId, groupId);
@@ -193,22 +351,24 @@ class AccountManager implements OperationListener {
             return;
         }
 
-        // Kick out remover
-        account.kickOutFromGroup(groupId, Collections.singletonList(removerId));
+        if (!myId.equals(removedId)) {
 
-        // Invite supporters and the removed user
-        Set<String> supporters = guard.getGroupRoleMembers(groupId, Role.SUPPORTER);
-        List<String> invitees = new ArrayList<>(supporters);
-        if (!supporters.contains(removedId)) {
-            invitees.add(removedId);
+            // Kick out remover
+            account.kickOutFromGroup(groupId, Collections.singletonList(removerId));
+
+            // Invite supporters and the removed user
+            Set<String> supporters = guard.getGroupRoleMembers(groupId, Role.SUPPORTER);
+            List<String> invitees = new ArrayList<>(supporters);
+            if (!supporters.contains(removedId)) {
+                invitees.add(removedId);
+            }
+            invitees.remove(myId);
+            account.inviteIntoGroup(groupId, invitees);
+        } else {
+            LOGGER.info("{} {} has been kicked out from group {}", myRole, myId, groupId);
         }
-        invitees.remove(myId);
-        account.inviteIntoGroup(groupId, invitees);
-        groupProfile.addBlockedUser(removerId);
-    }
 
-    public void onLeaveGroup(@Nonnull String groupId) throws IOException {
-        account.refreshGroups();
+        groupProfile.addBlockedUser(removerId);
     }
 
     @Nonnull
@@ -219,9 +379,16 @@ class AccountManager implements OperationListener {
         if (admins.isEmpty()) {
 
             // Use group creator by default
-            LineGroup group = account.getGroup(groupProfile.getGroupId());
-            if (group != null) {
-                Collections.singleton(group.getCreator().getId());
+            Group group = account.getGroup(groupProfile.getGroupId());
+
+            // If I can get the group information (I'm in the group or I'm invited),
+            // and the creator of the group is available
+            // p.s. If the creator of the group leaves the group before, then the creator
+            // may be null.
+            if (group != null && group.getCreator() != null) {
+                String creatorId = group.getCreator().getMid();
+                groupProfile.addAdminIdIfEmpty(creatorId);
+                return Collections.singleton(creatorId);
             }
             return Collections.emptySet();
         } else {

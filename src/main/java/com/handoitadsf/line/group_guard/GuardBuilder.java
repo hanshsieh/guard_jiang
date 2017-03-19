@@ -21,8 +21,8 @@ public class GuardBuilder {
     private final Map<String, GroupProfile> groups = new HashMap<>();
     private final Map<Relation, Role> userRoles = new HashMap<>();
 
-    public GuardBuilder addAccount(@Nonnull Account account) throws IOException {
-        String id = account.getProfile().getMid();
+    public GuardBuilder addAccount(@Nonnull Account account) {
+        String id = account.getMid();
         if (accounts.containsKey(id)) {
             throw new IllegalStateException("Account " + id + " already exists");
         }

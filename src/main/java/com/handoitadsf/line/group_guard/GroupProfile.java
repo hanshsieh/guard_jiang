@@ -1,6 +1,8 @@
 package com.handoitadsf.line.group_guard;
 
 import com.google.common.collect.ImmutableSet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -14,6 +16,9 @@ import java.util.Set;
  * Created by someone on 1/31/2017.
  */
 public class GroupProfile {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GroupProfile.class);
+
     private final String groupId;
     private final Set<String> adminIds = new HashSet<>();
 
@@ -36,14 +41,36 @@ public class GroupProfile {
     }
 
     public void addAdminId(@Nonnull String adminId) {
+
+        LOGGER.info("Adding user {} to admin", adminId);
+
         synchronized (adminIds) {
             adminIds.add(adminId);
         }
     }
 
-    public void removeAdminId(@Nonnull String adminId) {
+    public void addAdminIdIfEmpty(@Nonnull String adminId) {
         synchronized (adminIds) {
-            adminIds.remove(adminId);
+            if (adminIds.isEmpty()) {
+                addAdminId(adminId);
+            }
+        }
+    }
+
+    public boolean removeAdminId(@Nonnull String adminId) {
+
+        LOGGER.info("Removing user {} from admin", adminId);
+        synchronized (adminIds) {
+            return adminIds.remove(adminId);
+        }
+    }
+
+    public boolean removeAdminIdIfNotEmpty(@Nonnull String adminId) {
+        synchronized (adminIds) {
+            if (adminIds.size() == 1 && adminIds.contains(adminId)) {
+                return false;
+            }
+            return removeAdminId(adminId);
         }
     }
 
@@ -61,12 +88,14 @@ public class GroupProfile {
 
     @Nullable
     public BlockingEntry removeBlockingEntry(@Nonnull String userId) {
+        LOGGER.info("Removing user {} from black list", userId);
         synchronized (blockedAccounts) {
             return blockedAccounts.remove(userId);
         }
     }
 
     public void addBlockedUser(@Nonnull String userId) {
+        LOGGER.info("Adding user {} to black list", userId);
         synchronized (blockedAccounts) {
             blockedAccounts.put(userId, new BlockingEntry(userId));
             Iterator<Map.Entry<String, BlockingEntry>> iterator = blockedAccounts.entrySet().iterator();
