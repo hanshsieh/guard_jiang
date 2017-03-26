@@ -7,7 +7,7 @@ import java.time.Instant;
  * Created by someone on 1/31/2017.
  */
 public class BlockingRecord {
-    private static final long DEFAULT_BLOCKING_MS = 1000 * 60 * 10;
+    private static final long DEFAULT_BLOCKING_MS = 1000 * 60 * 60;
     private final String accountId;
     private final Instant blockUntilTime;
     public BlockingRecord(@Nonnull String accountId) {

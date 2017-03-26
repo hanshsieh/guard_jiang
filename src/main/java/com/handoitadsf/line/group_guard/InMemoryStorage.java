@@ -1,11 +1,13 @@
 package com.handoitadsf.line.group_guard;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,6 +31,12 @@ public class InMemoryStorage implements Storage {
 
     @Nonnull
     private final Map<String, Map<String, BlockingRecord>> groupBlockingRecords = new HashMap<>();
+
+    @Nonnull
+    private final Map<String, Instant> groupRecoverExpiryTime = new HashMap<>();
+
+    @Nonnull
+    private final Map<String, MembersBackup> groupMembersBackup = new HashMap<>();
 
     @Nonnull
     @Override
@@ -63,6 +71,14 @@ public class InMemoryStorage implements Storage {
                             entry -> entry.getKey().getUserId(),
                             Map.Entry::getValue
                     ));
+        }
+    }
+
+    @Nonnull
+    @Override
+    public Map<Relation, Role> getRoles() throws IOException {
+        synchronized (roles) {
+            return ImmutableMap.copyOf(roles);
         }
     }
 
@@ -106,6 +122,36 @@ public class InMemoryStorage implements Storage {
                 groupBlockingRecords.put(groupId, records);
             }
             records.put(blockingRecord.getAccountId(), blockingRecord);
+        }
+    }
+
+    @Nonnull
+    @Override
+    public MembersBackup getGroupMembersBackup(@Nonnull String groupId) throws IOException {
+        synchronized (groupMembersBackup) {
+            return groupMembersBackup.get(groupId);
+        }
+    }
+
+    @Override
+    public void setGroupMembersBackup(@Nonnull String groupId, @Nonnull MembersBackup backup) throws IOException {
+        synchronized (groupMembersBackup) {
+            groupMembersBackup.put(groupId, backup);
+        }
+    }
+
+    @Nullable
+    @Override
+    public Instant getGroupRecoveryExpiryTime(@Nonnull String groupId) throws IOException {
+        synchronized (groupRecoverExpiryTime) {
+            return groupRecoverExpiryTime.get(groupId);
+        }
+    }
+
+    @Override
+    public void setGroupRecoveryExpiryTime(@Nonnull String groupId, @Nullable Instant expiryTime) throws IOException {
+        synchronized (groupRecoverExpiryTime) {
+            groupRecoverExpiryTime.put(groupId, expiryTime);
         }
     }
 

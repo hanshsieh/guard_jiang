@@ -1,5 +1,4 @@
 .idea/*
 *.iml
 target/*
-src/main/resources/*.conf
-src/main/java/com/handoitadsf/line/group_guard/CLI.java
+src/test/resources/*.conf

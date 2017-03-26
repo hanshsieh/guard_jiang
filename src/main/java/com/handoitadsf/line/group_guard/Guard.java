@@ -111,4 +111,9 @@ public class Guard {
     public GuardGroup getGroup(@Nonnull String groupId) throws IOException {
         return new GuardGroup(storage, groupId);
     }
+
+    @Nonnull
+    public Map<Relation, Role> getRoles() throws IOException {
+        return storage.getRoles();
+    }
 }

@@ -2,15 +2,21 @@ package com.handoitadsf.line.group_guard;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.google.common.collect.ImmutableSet;
 import io.cslinmiso.line.model.LineClient;
 import io.cslinmiso.line.model.LineGroup;
+import line.thrift.Contact;
+import line.thrift.ContactSetting;
 import line.thrift.Group;
 import line.thrift.Operation;
 import line.thrift.Profile;
@@ -174,14 +180,14 @@ public class Account {
         }
     }
 
-    public void inviteIntoGroup(@Nonnull String groupId, @Nonnull List<String> contactIds)
+    public void inviteIntoGroup(@Nonnull String groupId, @Nonnull Collection<String> contactIds)
         throws IOException {
         if (contactIds.isEmpty()) {
             return;
         }
         try {
             LOGGER.debug("User {} invites {} into group {}", mid, contactIds, groupId);
-            client.inviteIntoGroup(groupId, contactIds);
+            client.inviteIntoGroup(groupId, new ArrayList<>(contactIds));
         } catch (Exception ex) {
             throw new IOException("Fail to invite into groups. group ID: " + groupId + ", contacts: " + contactIds);
         }
@@ -195,6 +201,41 @@ public class Account {
         } catch (Exception ex) {
             throw new IOException("Fail to kick out from group. groupId: "
                     + groupId + ", contact: " + contactId, ex);
+        }
+    }
+
+    public void addContact(String contact) throws IOException {
+        try {
+            LOGGER.debug("User {} is adding {} to contact", mid, contact);
+            client.getApi().findAndAddContactsByMid(0, contact);
+        } catch (Exception ex) {
+            throw new IOException("Fail to add " + contact + " to contact", ex);
+        }
+    }
+
+    @Nonnull
+    public List<String> getContactIds() throws IOException {
+        try {
+            return client.getApi().getAllContactIds();
+        } catch (Exception ex) {
+            throw new IOException("Fail to get contacts", ex);
+        }
+    }
+
+    public List<Contact> getContacts(List<String> contacts) throws IOException {
+        try {
+            return client.getApi().getContacts(contacts);
+        } catch (Exception ex) {
+            throw new IOException("Fail to get contacts for " + contacts, ex);
+        }
+    }
+
+    public void removeContact(@Nonnull String contact) throws IOException {
+        try {
+            LOGGER.debug("User {} is removing {} from contacts", mid, contact);
+            client.getApi().updateContactSetting(0, contact, ContactSetting.CONTACT_SETTING_DELETE, "true");
+        } catch (Exception ex) {
+            throw new IOException("Fail to remove contact " + contact, ex);
         }
     }
 

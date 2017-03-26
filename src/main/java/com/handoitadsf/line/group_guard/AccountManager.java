@@ -10,9 +10,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,7 +19,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -31,6 +29,7 @@ class AccountManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(AccountManager.class);
     private static final int THREAD_NAME_MID_PREFIX_LEN = 5;
     private static final long SUPPORTING_MS = 1000 * 60 * 5;
+    private static final long RECOVERY_MS = 1000 * 60 * 5;
     private static final String SEPARATOR = "\u001E";
     private Guard guard;
     private final Account account;
@@ -79,10 +78,19 @@ class AccountManager {
         LOGGER.debug("Rectifying status");
 
         // Check the joined groups
-        checkJoinedGroups();
+        Set<String> contactsToAdd = checkJoinedGroups();
 
         // Check the invited groups
         checkInvitedGroups();
+
+        contactsToAdd.addAll(guard.getRoles().keySet().stream()
+                .map(Relation::getUserId)
+                .collect(Collectors.toSet()));
+        contactsToAdd.removeAll(account.getContactIds());
+        contactsToAdd.remove(account.getMid());
+        for (String contactToAdd : contactsToAdd) {
+            account.addContact(contactToAdd);
+        }
 
         lastRectifyTime = Instant.now();
     }
@@ -101,66 +109,139 @@ class AccountManager {
         }
     }
 
-    private void checkJoinedGroups() throws IOException {
-        String myId = account.getMid();
-        long now = System.currentTimeMillis();
+    private Set<String> checkJoinedGroups() throws IOException {
+        Set<String> contactsToAdd = new HashSet<>();
         List<String> groupIdsJoined = account.getGroupIdsJoined();
         for (String groupId : groupIdsJoined) {
-            GuardGroup group = guard.getGroup(groupId);
-
-            Role myRole = group.getRoles().get(myId);
-
-            boolean shouldLeave = false;
-
-            if (!shouldAcceptInvitation(myRole)) {
-                shouldLeave = true;
-            } else {
-                kickoutBlockedMembers(group);
-                inviteDefenders(group);
-                if (Role.SUPPORTER.equals(myRole)) {
-                    Instant joinedTime = groupJoinedTime.get(groupId);
-                    if (joinedTime == null ||
-                            now - joinedTime.toEpochMilli() > SUPPORTING_MS) {
-                        shouldLeave = true;
-                    }
-                }
-            }
-
-            if (shouldLeave) {
-                account.leaveGroup(groupId);
-            } else {
-                updateGroupAdmin(groupId);
-            }
+            contactsToAdd.addAll(checkJoinedGroup(groupId));
         }
 
         Iterator<Map.Entry<String, Instant>> itr = groupJoinedTime.entrySet().iterator();
         while (itr.hasNext()) {
             Map.Entry<String, Instant> entry = itr.next();
 
-            if (groupIdsJoined.contains(entry.getKey())) {
+            if (!groupIdsJoined.contains(entry.getKey())) {
                 itr.remove();
             }
         }
+        return contactsToAdd;
     }
 
-    private void kickoutBlockedMembers(@Nonnull GuardGroup guardGroup) throws IOException {
+    @Nonnull
+    private Set<String> checkJoinedGroup(@Nonnull String groupId) throws IOException {
+        Set<String> contactsToAdd = new HashSet<>();
+
+        long now = System.currentTimeMillis();
+        String myId = account.getMid();
+        GuardGroup guardGroup = guard.getGroup(groupId);
+
+        Role myRole = guardGroup.getRoles().get(myId);
+
+        boolean shouldLeave = false;
+
+        if (!shouldAcceptInvitation(myRole)) {
+            shouldLeave = true;
+        } else {
+            Set<String> memberIds = getGroupMemberIds(groupId);
+            Set<String> blockIds = getGroupBlockedIds(guardGroup);
+
+            kickoutBlockedMembers(guardGroup, memberIds, blockIds);
+            inviteDefenders(guardGroup, memberIds);
+
+            backupGroupMembers(guardGroup, memberIds, blockIds);
+            contactsToAdd.addAll(memberIds);
+
+            if (Role.SUPPORTER.equals(myRole)) {
+                Instant joinedTime = groupJoinedTime.get(groupId);
+                if (joinedTime == null ||
+                        now - joinedTime.toEpochMilli() > SUPPORTING_MS) {
+                    shouldLeave = true;
+                }
+            }
+        }
+
+        if (shouldLeave) {
+            account.leaveGroup(groupId);
+        } else {
+            updateGroupAdmin(groupId);
+        }
+        return contactsToAdd;
+    }
+
+    private Set<String> getGroupBlockedIds(@Nonnull GuardGroup guardGroup) throws IOException {
+        return guardGroup.getBlockingRecords()
+                .stream()
+                .map(BlockingRecord::getAccountId)
+                .collect(Collectors.toSet());
+    }
+
+    private void recoverGroupMembers(
+            @Nonnull GuardGroup guardGroup,
+            @Nonnull Set<String> groupMembers,
+            @Nonnull Set<String> blockedMembers) throws IOException {
+        Instant expiryTime = guardGroup.getRecoveryExpiryTime();
+        long now = System.currentTimeMillis();
+        String groupId = guardGroup.getId();
+
+        if (expiryTime != null && expiryTime.toEpochMilli() >= now) {
+            MembersBackup backup = guardGroup.getMembersBackup();
+            LOGGER.info("Recovering members of group {} from snapshot of time {}",
+                    groupId, backup.getBackupTime());
+            Set<String> membersBackup = backup.getMembers()
+                    .stream()
+                    .filter(memberId -> !groupMembers.contains(memberId) && !blockedMembers.contains(memberId))
+                    .collect(Collectors.toSet());
+            account.inviteIntoGroup(groupId, membersBackup);
+        }
+    }
+
+    private void backupGroupMembers(
+            @Nonnull GuardGroup guardGroup,
+            @Nonnull Set<String> groupMembers,
+            @Nonnull Set<String> blockedMembers) throws IOException {
+        String groupId = guardGroup.getId();
+        long now = System.currentTimeMillis();
+        Instant expiryTime = guardGroup.getRecoveryExpiryTime();
+        if (expiryTime == null || expiryTime.toEpochMilli() < now) {
+            LOGGER.debug("Backing up members for group {}", groupId);
+            Set<String> members = groupMembers.stream()
+                    .filter(memberId -> !blockedMembers.contains(memberId))
+                    .collect(Collectors.toSet());
+            guardGroup.setMembersBackup(new MembersBackup(members));
+        }
+    }
+
+    private void kickoutBlockedMembers(
+            @Nonnull GuardGroup guardGroup,
+            @Nonnull Set<String> memberIds,
+            @Nonnull Set<String> blockedIds) throws IOException {
         String groupId = guardGroup.getId();
         Group group = account.getGroup(groupId);
         if (group == null) {
             return;
         }
-        Set<String> memberIds = group.getMembers()
-            .stream()
-            .map(Contact::getMid)
-            .collect(Collectors.toSet());
-        Set<String> blockedMembers = guardGroup.getBlockingRecords()
+        List<Contact> invitees = group.getInvitee();
+        Set<String> inviteeIds;
+        if (invitees == null) {
+            inviteeIds = Collections.emptySet();
+        } else {
+            inviteeIds = invitees
+                    .stream()
+                    .map(Contact::getMid)
+                    .collect(Collectors.toSet());
+        }
+        Set<String> blockedMembers = blockedIds
                 .stream()
-                .map(BlockingRecord::getAccountId)
                 .filter(memberIds::contains)
                 .collect(Collectors.toSet());
+        List<String> blockedInvitees = blockedIds
+                .stream()
+                .filter(inviteeIds::contains)
+                .collect(Collectors.toList());
         for (String blockedMember : blockedMembers) {
             account.kickOutFromGroup(groupId, blockedMember);
         }
+        account.cancelGroupInvitation(groupId, blockedInvitees);
     }
 
     void onOperation(@Nonnull Operation operation) throws IOException {
@@ -191,6 +272,7 @@ class AccountManager {
                 onNotifiedAcceptGroupInvitation(operation.getParam1(), operation.getParam2());
                 break;
 
+            // Another user has kicked out another user (maybe myself) from a group.
             case NOTIFIED_KICKOUT_FROM_GROUP:
                 onNotifiedKickOutFromGroup(
                         operation.getParam1(),
@@ -199,6 +281,9 @@ class AccountManager {
                 break;
             case LEAVE_GROUP:
                 onLeaveGroup(operation.getParam1());
+
+            case NOTIFIED_LEAVE_GROUP:
+                onNotifiedLeaveGroup(operation.getParam1(), operation.getParam2());
         }
     }
 
@@ -309,8 +394,18 @@ class AccountManager {
     }
 
     private void onLeaveGroup(@Nonnull String groupId) throws IOException {
-        LOGGER.info("User {} leaves group {}", account.getMid(), groupId);
+        LOGGER.info("I({}) have left group {}", account.getMid(), groupId);
         groupJoinedTime.remove(groupId);
+    }
+
+    private void onNotifiedLeaveGroup(@Nonnull String groupId, @Nonnull String userId) throws IOException {
+        LOGGER.info("Another user {} has left group {}", userId, groupId);
+        GuardGroup guardGroup = guard.getGroup(groupId);
+
+        backupGroupMembers(
+                guardGroup,
+                getGroupMemberIds(groupId),
+                getGroupBlockedIds(guardGroup));
     }
 
     private boolean shouldAcceptInvitation(Role role) {
@@ -347,7 +442,7 @@ class AccountManager {
 
         String myId = getId();
 
-        LOGGER.info("User {} has accepted invitation into group {}", myId, groupId);
+        LOGGER.info("I({}) has accepted invitation into group {}", myId, groupId);
 
         GuardGroup group = guard.getGroup(groupId);
 
@@ -362,12 +457,29 @@ class AccountManager {
             return;
         }
 
+        Set<String> groupMembers = getGroupMemberIds(groupId);
+        Set<String> blockedMembers = getGroupBlockedIds(group);
+
+        kickoutBlockedMembers(group, groupMembers, blockedMembers);
+        inviteDefenders(group, getGroupMemberIds(groupId));
+        recoverGroupMembers(group, groupMembers, blockedMembers);
         updateGroupAdmin(groupId);
-        inviteDefenders(group);
     }
 
-    private void inviteDefenders(@Nonnull GuardGroup group) throws IOException {
-        String myId = account.getMid();
+    private Set<String> getGroupMemberIds(@Nonnull String groupId) throws IOException {
+        Group group = account.getGroup(groupId);
+        if (group == null) {
+            return Collections.emptySet();
+        }
+        return group.getMembers()
+                .stream()
+                .map(Contact::getMid)
+                .collect(Collectors.toSet());
+    }
+
+    private void inviteDefenders(
+            @Nonnull GuardGroup group,
+            @Nonnull Set<String> memberIds) throws IOException {
         String groupId = group.getId();
 
         // Get other defenders of the group
@@ -375,28 +487,32 @@ class AccountManager {
                 .entrySet()
                 .stream()
                 .filter(entry ->
-                        !entry.getKey().equals(myId) &&
-                                Role.DEFENDER.equals(entry.getValue()))
+                        !memberIds.contains(entry.getKey()) &&
+                        Role.DEFENDER.equals(entry.getValue()))
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
 
         // Invite other defenders
-        account.inviteIntoGroup(groupId, new ArrayList<>(otherDefenderIds));
+        if (!otherDefenderIds.isEmpty()) {
+            for (String otherDefenderId : otherDefenderIds) {
+                account.addContact(otherDefenderId);
+            }
+            account.inviteIntoGroup(groupId, otherDefenderIds);
+        }
     }
 
     private void onNotifiedAcceptGroupInvitation(@Nonnull String groupId, @Nonnull String inviteeId)
         throws IOException {
         GuardGroup group = guard.getGroup(groupId);
-        Collection<BlockingRecord> records = group.getBlockingRecords();
-        boolean inviteeBlocked = false;
-        for (BlockingRecord record : records) {
-            if (inviteeId.equals(record.getAccountId())) {
-                inviteeBlocked = true;
-                break;
-            }
-        }
-        if (inviteeBlocked) {
+        Set<String> blockIds = getGroupBlockedIds(group);
+        if (blockIds.contains(inviteeId)) {
             account.kickOutFromGroup(groupId, inviteeId);
+        } else {
+            account.addContact(inviteeId);
+            backupGroupMembers(
+                    group,
+                    getGroupMemberIds(groupId),
+                    blockIds);
         }
     }
 
@@ -443,6 +559,12 @@ class AccountManager {
             return;
         }
 
+        // Add the remover to black list first because I may have been kicked out
+        // and the following operations may fail
+        group.putBlockingRecord(new BlockingRecord(removerId));
+
+        group.setRecoveryExpiryTime(Instant.now().plus(RECOVERY_MS, ChronoUnit.MILLIS));
+
         // Kick out remover
         account.kickOutFromGroup(groupId, removerId);
 
@@ -464,9 +586,14 @@ class AccountManager {
             .filter(removedId -> !blockedIds.contains(removedId))
             .collect(Collectors.toList()));
         invitees.remove(myId);
-        account.inviteIntoGroup(groupId, new ArrayList<>(invitees));
 
-        group.putBlockingRecord(new BlockingRecord(removerId));
+        // I must add the user as friend before inviting the user
+        // to a group
+        LOGGER.debug("Contacts to invite to handle kick out event: {}", invitees);
+        for (String invitee : invitees) {
+            account.addContact(invitee);
+        }
+        account.inviteIntoGroup(groupId, invitees);
     }
 
     @Nonnull
