@@ -2,3 +2,6 @@
 *.iml
 target/*
 src/test/resources/*.conf
+src/main/resources/*.conf
+*.log
+*.log.zip

@@ -197,7 +197,7 @@ public class Account {
         throws IOException {
         try {
             LOGGER.debug("User {} kick out {} from group {}", mid, contactId, groupId);
-            client.getApi().kickoutFromGroup(0, groupId, Arrays.asList(contactId));
+            client.getApi().kickoutFromGroup(0, groupId, Collections.singletonList(contactId));
         } catch (Exception ex) {
             throw new IOException("Fail to kick out from group. groupId: "
                     + groupId + ", contact: " + contactId, ex);

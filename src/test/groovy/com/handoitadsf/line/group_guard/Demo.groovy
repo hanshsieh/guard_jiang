@@ -3,8 +3,6 @@ package com.handoitadsf.line.group_guard
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import groovy.util.logging.Slf4j
-import line.thrift.Contact
-import line.thrift.ContactSetting
 
 /**
  * Created by someone on 3/25/2017.
@@ -82,12 +80,14 @@ class Demo {
             String groupId = groupConf.getString("id")
             List<String> defenders = groupConf.getStringList("defenders")
             List<String> supporters = groupConf.getStringList("supporters")
+            List<String> admins = groupConf.getStringList("admins")
             defenders.each { String defender ->
                 storage.addRole(new Relation(defender, groupId), Role.DEFENDER)
             }
             supporters.each { def supporter ->
                 storage.addRole(new Relation(supporter, groupId), Role.SUPPORTER)
             }
+            storage.setGroupAdmins(groupId, new HashSet<String>(admins))
         }
     }
 }
