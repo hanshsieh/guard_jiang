@@ -43,7 +43,7 @@ public class Account {
         try {
             boolean loggedIn = false;
             if (credential.getAuthToken() != null) {
-                LOGGER.debug("Trying to login with auth token");
+                LOGGER.debug("Trying to login with auth token. email: {}", credential.getEmail());
                 try {
                     client.loginWithAuthToken(credential.getAuthToken());
                     loggedIn = true;
@@ -52,6 +52,8 @@ public class Account {
                 }
             }
             if (!loggedIn) {
+                LOGGER.debug("Cannot login with auth token, trying to login with certificate only. email: {}",
+                             credential.getEmail());
                 client.login(
                         credential.getEmail(),
                         credential.getPassword(),

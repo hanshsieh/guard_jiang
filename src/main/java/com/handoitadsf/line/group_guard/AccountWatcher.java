@@ -16,7 +16,7 @@ public class AccountWatcher extends Thread {
     private static final Logger LOGGER = LoggerFactory.getLogger(AccountWatcher.class);
     private static final int MAX_RETRY = 3;
     private static final int NUM_FETCH_OPERATIONS = 50;
-    private static final long AUTH_TOKEN_REFRESH_MS = 1000 * 60 * 60 * 12;
+    private static final long AUTH_TOKEN_REFRESH_MS = 1000 * 60 * 60 * 6;
     private static final long SLEEP_MS = 1000 * 3;
     private static final long RECTIFY_STATUS_DELAY_MS = 1000 * 60 * 10;
 

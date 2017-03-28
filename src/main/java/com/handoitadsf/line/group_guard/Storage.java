@@ -1,7 +1,5 @@
 package com.handoitadsf.line.group_guard;
 
-import com.sun.istack.internal.NotNull;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;

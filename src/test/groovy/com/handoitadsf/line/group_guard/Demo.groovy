@@ -23,6 +23,9 @@ class Demo {
         loadGroups()
         def guard = new Guard(storage)
         guard.start()
+        if (malicious.isEmpty()) {
+            return
+        }
         log.info("Sleep a while...")
         sleep(1000 * 30)
         log.info("Starting malicious accounts...")
