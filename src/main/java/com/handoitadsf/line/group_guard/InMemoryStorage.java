@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -108,6 +109,13 @@ public class InMemoryStorage implements Storage {
             Map<String, BlockingRecord> records = groupBlockingRecords.get(groupId);
             if (records == null) {
                 return Collections.emptySet();
+            }
+            Iterator<Map.Entry<String, BlockingRecord>> itr = records.entrySet().iterator();
+            while (itr.hasNext()) {
+                Map.Entry<String, BlockingRecord> entry = itr.next();
+                if (entry.getValue().isExpired()) {
+                    itr.remove();
+                }
             }
             return ImmutableList.copyOf(records.values());
         }
