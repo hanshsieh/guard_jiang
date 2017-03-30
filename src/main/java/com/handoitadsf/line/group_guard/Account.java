@@ -52,8 +52,10 @@ public class Account {
                 }
             }
             if (!loggedIn) {
-                LOGGER.debug("Cannot login with auth token, trying to login with certificate only. email: {}",
-                             credential.getEmail());
+                LOGGER.debug("Cannot login with auth token, trying to login with certificate only. "
+                             + "email: {}, certificate: {}",
+                             credential.getEmail(),
+                             credential.getCertificate());
                 client.login(
                         credential.getEmail(),
                         credential.getPassword(),

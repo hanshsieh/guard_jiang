@@ -5,6 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+
+import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 
@@ -42,48 +44,57 @@ public class AccountWatcher extends Thread {
         }
     }
 
+    private void checkAccountStatus() throws IOException {
+        Account account = accountManager.getAccount();
+        long now = System.currentTimeMillis();
+        long authTokenAgeMs = now - account.getAuthTokenLastRefreshTime().toEpochMilli();
+        if (authTokenAgeMs > AUTH_TOKEN_REFRESH_MS) {
+            account.refreshAuthToken();
+        }
+
+        if (revision == null) {
+            revision = account.getLastOpRevision();
+            accountManager.rectifyStatus();
+        }
+        Instant lastRectifyTime = accountManager.getLastRectifyTime();
+
+        if (lastRectifyTime == null ||
+            now - lastRectifyTime.toEpochMilli() > RECTIFY_STATUS_DELAY_MS) {
+            accountManager.rectifyStatus();
+        }
+    }
+
     @Override
     public void run() {
         try {
-            int retryCount = 0;
             while (!shouldStop) {
+
                 try {
+                    checkAccountStatus();
+
                     Account account = accountManager.getAccount();
-
-                    long now = System.currentTimeMillis();
-                    long authTokenAgeMs = now - account.getAuthTokenLastRefreshTime().toEpochMilli();
-                    if (authTokenAgeMs > AUTH_TOKEN_REFRESH_MS) {
-                        account.refreshAuthToken();
-                    }
-
-                    if (revision == null) {
-                        revision = account.getLastOpRevision();
-                        accountManager.rectifyStatus();
-                    }
-                    Instant lastRectifyTime = accountManager.getLastRectifyTime();
-
-                    if (lastRectifyTime == null ||
-                            now - lastRectifyTime.toEpochMilli() > RECTIFY_STATUS_DELAY_MS) {
-                        accountManager.rectifyStatus();
-                    }
-
                     List<Operation> operations = account.fetchOperations(
-                            revision, NUM_FETCH_OPERATIONS);
+                        revision, NUM_FETCH_OPERATIONS);
                     for (Operation operation : operations) {
-                        accountManager.onOperation(operation);
+                        for (int retryCount = 0; retryCount < MAX_RETRY; ++retryCount) {
+                            try {
+                                accountManager.onOperation(operation);
+                                break;
+                            } catch (Throwable ex) {
+                                if (retryCount >= MAX_RETRY) {
+                                    LOGGER.error("Error occurs when handling operations. Skip it. retryCount: {}",
+                                                 retryCount, ex);
+                                    revision++;
+                                } else {
+                                    LOGGER.error("Error occurs when handling operations. Retry later. retryCount: {}",
+                                                 retryCount, ex);
+                                }
+                                sleep();
+                            }
+                        }
                         revision = Math.max(revision, operation.getRevision());
-                        retryCount = 0;
                     }
                 } catch (Throwable ex) {
-                    ++retryCount;
-                    if (retryCount >= MAX_RETRY) {
-                        LOGGER.error("Error occurs when handling operations. Skip it. retryCount: {}",
-                                retryCount, ex);
-                        revision++;
-                    } else {
-                        LOGGER.error("Error occurs when handling operations. Retry later. retryCount: {}",
-                                retryCount, ex);
-                    }
                     sleep();
                 }
             }
