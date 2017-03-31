@@ -95,6 +95,7 @@ public class AccountWatcher extends Thread {
                         revision = Math.max(revision, operation.getRevision());
                     }
                 } catch (Throwable ex) {
+                    LOGGER.error("Error occurs. Will retry later...", ex);
                     sleep();
                 }
             }

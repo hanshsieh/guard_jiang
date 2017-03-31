@@ -33,7 +33,7 @@ public class Account {
     private final LineClient client;
     private String mid;
     private Instant authTokenLastRefreshTime = null;
-    private AccountCredential credential;
+    private final AccountCredential credential;
     public Account(@Nonnull AccountCredential credential) throws IOException {
         this.client = new LineClient();
         this.credential = credential;
@@ -53,7 +53,7 @@ public class Account {
             }
             if (!loggedIn) {
                 LOGGER.debug("Cannot login with auth token, trying to login with certificate only. "
-                             + "email: {}, certificate: {}",
+                             + "email: {}",
                              credential.getEmail(),
                              credential.getCertificate());
                 client.login(
@@ -64,7 +64,6 @@ public class Account {
                 );
             }
             credential.setAuthToken(client.getAuthToken());
-            credential.setCertificate(client.getCertificate());
             mid = client.getProfile().getMid();
             authTokenLastRefreshTime = Instant.now();
         } catch (TException ex) {
