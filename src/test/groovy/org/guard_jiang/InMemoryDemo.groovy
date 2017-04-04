@@ -1,5 +1,6 @@
-package com.handoitadsf.line.group_guard
+package org.guard_jiang
 
+import org.guard_jiang.storage.InMemoryStorage
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import groovy.util.logging.Slf4j
@@ -8,15 +9,15 @@ import groovy.util.logging.Slf4j
  * Created by someone on 3/25/2017.
  */
 @Slf4j
-class Demo {
+class InMemoryDemo {
     private final InMemoryStorage storage
     private final Config config
     private final List malicious = []
     public static void main(String[] args) throws Exception {
-        new Demo();
+        new InMemoryDemo();
     }
 
-    public Demo() {
+    public InMemoryDemo() {
         storage = new InMemoryStorage();
         config = ConfigFactory.load("config.conf");
         loadAccounts();
@@ -63,13 +64,13 @@ class Demo {
             String certificate = accountConf.getString("certificate")
             String authToken = accountConf.getString("authToken")
             List<String> overthrow = accountConf.getStringList("overthrow")
-            AccountCredential credential = new AccountCredential()
+            Credential credential = new Credential()
             credential.setEmail(email)
             credential.setPassword(password)
             credential.setCertificate(certificate)
             credential.setAuthToken(authToken)
             if (overthrow.isEmpty()) {
-                storage.setAccountCredential(mid, credential)
+                storage.setCredential(mid, credential)
             } else {
                 def account = new Account(credential)
                 malicious << [account, overthrow]
@@ -85,12 +86,15 @@ class Demo {
             List<String> supporters = groupConf.getStringList("supporters")
             List<String> admins = groupConf.getStringList("admins")
             defenders.each { String defender ->
-                storage.addRole(new Relation(defender, groupId), Role.DEFENDER)
+                storage.setGroupRole(groupId, defender, Role.DEFENDER)
             }
             supporters.each { def supporter ->
-                storage.addRole(new Relation(supporter, groupId), Role.SUPPORTER)
+                storage.setGroupRole(groupId, supporter, Role.SUPPORTER)
             }
-            storage.setGroupAdmins(groupId, new HashSet<String>(admins))
+            admins.each { def admin ->
+                storage.setGroupRole(groupId, admin, Role.ADMIN)
+            }
+
         }
     }
 }

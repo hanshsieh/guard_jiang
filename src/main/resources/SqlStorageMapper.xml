@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.guard_jiang.storage.SqlStorageMapper">
+    <select id="getUserIds" resultType="String">
+        select id from user
+    </select>
+    <select id="getCredential" resultType="org.guard_jiang.Credential" timeout="3">
+        select
+            email,
+            password,
+            certificate,
+            auth_token as authToken
+        from "user" where id = #{userId}
+    </select>
+    <insert id="setCredential" timeout="3">
+        insert or replace into "user" (
+                id,
+                email,
+                password,
+                certificate,
+                auth_token)
+            values (
+                #{userId},
+                #{credential.email},
+                #{credential.password},
+                #{credential.certificate, jdbcType=VARCHAR},
+                #{credential.authToken, jdbcType=VARCHAR}
+            )
+    </insert>
+    <insert id="setGroupRole" timeout="3">
+        insert or replace into "role" (
+            group_id,
+            user_id,
+            role)
+        values (
+            #{groupId},
+            #{userId},
+            #{role}
+        )
+    </insert>
+    <delete id="removeGroupRole" timeout="3">
+        delete from "role" where
+            group_id = #{groupId} and
+            user_id = #{userId}
+    </delete>
+    <insert id="setGroupMetadata" timeout="3">
+        insert or replace into "group" (
+            id,
+            recovery_expiry_ts,
+            members_backup_ts)
+        values (
+            #{groupId},
+            #{metadata.recoveryExpiryTime},
+            #{metadata.membersBackupTime}
+        )
+    </insert>
+    <select id="getGroupMetadata" timeout="3" resultType="org.guard_jiang.storage.GroupMetadata">
+        select
+            recovery_expiry_ts as recoveryExpiryTime,
+            members_backup_ts as membersBackupTime
+        from "group" where id = #{groupId}
+    </select>
+    <select id="getGroupRoles" timeout="3" resultType="org.guard_jiang.UserRole">
+        select
+            user_id as userId,
+            role
+        from "role"
+        where group_id = #{groupId}
+    </select>
+    <select id="getGroupBlockingRecords" timeout="3" resultMap="groupBlockingRecords">
+        select
+            user_id,
+            expiry_ts
+        from "group_blocking_record"
+        where group_id = #{groupId}
+    </select>
+
+    <insert id="setGroupBlockingRecord" timeout="3">
+        insert or replace into "group_blocking_record" (
+            group_id,
+            user_id,
+            expiry_ts)
+        values (
+            #{groupId},
+            #{record.userId},
+            #{record.expiryTime}
+        )
+    </insert>
+
+    <select id="getGroupMembersBackup" resultType="String" timeout="3">
+        select user_id
+        from "group_member_backup" where group_id = #{groupId}
+    </select>
+
+    <insert id="addGroupMembersBackup" timeout="3">
+        insert or replace into "group_member_backup" (
+            group_id,
+            user_id)
+        values (
+            #{groupId},
+            #{userId}
+        )
+    </insert>
+
+    <delete id="clearGroupMemberBackup" timeout="3">
+        delete from "group_member_backup" where
+            group_id = #{groupId}
+    </delete>
+
+    <resultMap id="groupBlockingRecords" type="org.guard_jiang.BlockingRecord">
+        <constructor>
+            <idArg column="user_id" javaType="String" />
+            <arg column="expiry_ts" javaType="java.time.Instant" />
+        </constructor>
+    </resultMap>
+</mapper>

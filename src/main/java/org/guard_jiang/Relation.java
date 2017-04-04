@@ -1,4 +1,4 @@
-package com.handoitadsf.line.group_guard;
+package org.guard_jiang;
 
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
@@ -7,7 +7,7 @@ import javax.annotation.Nonnull;
 /**
  * Created by someone on 1/31/2017.
  */
-class Relation {
+public class Relation {
     private final String userId;
     private final String groupId;
     private final int hashCode;

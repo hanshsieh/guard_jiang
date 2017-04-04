@@ -1,7 +1,4 @@
-package com.handoitadsf.line.group_guard;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+package org.guard_jiang;
 
 /**
  * Created by cahsieh on 1/27/17.
