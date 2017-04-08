@@ -999,8 +999,8 @@ struct LoginSession {
 }
 
 struct Message {
-    1: string from;
-    2: string to;
+    1: string fromId;
+    2: string toId;
     3: MIDType toType;
     4: string id;
     5: i64 createdTime;
@@ -1038,8 +1038,8 @@ struct MetaProfile {
 
 struct NotificationItem {
     1: string id;
-    2: string from;
-    3: string to;
+    2: string fromId;
+    3: string toId;
     4: string fromChannel;
     5: string toChannel;
     7: i64 revision;
