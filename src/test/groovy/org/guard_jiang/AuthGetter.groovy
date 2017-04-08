@@ -1,5 +1,6 @@
-package com.handoitadsf.line.group_guard
+package org.guard_jiang
 
+import org.guard_jiang.storage.InMemoryStorage
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import groovy.util.logging.Slf4j

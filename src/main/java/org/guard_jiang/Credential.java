@@ -1,4 +1,4 @@
-package com.handoitadsf.line.group_guard;
+package org.guard_jiang;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
@@ -7,7 +7,7 @@ import io.cslinmiso.line.model.LoginCallback;
 /**
  * Created by cahsieh on 1/26/17.
  */
-public class AccountCredential {
+public class Credential {
     private String email;
     private String password;
     private String certificate;

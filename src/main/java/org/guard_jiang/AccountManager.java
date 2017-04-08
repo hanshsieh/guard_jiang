@@ -1,8 +1,9 @@
-package com.handoitadsf.line.group_guard;
+package org.guard_jiang;
 
 import line.thrift.Contact;
 import line.thrift.Group;
 import line.thrift.Operation;
+import org.guard_jiang.storage.GroupMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 class AccountManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AccountManager.class);
+    private static final long DEFAULT_BLOCKING_MS = 1000 * 60 * 60;
     private static final int THREAD_NAME_MID_PREFIX_LEN = 5;
     private static final long SUPPORTING_MS = 1000 * 60 * 5;
     private static final long RECOVERY_MS = 1000 * 60 * 5;
@@ -83,9 +85,6 @@ class AccountManager {
         // Check the invited groups
         checkInvitedGroups();
 
-        contactsToAdd.addAll(guard.getRoles().keySet().stream()
-                .map(Relation::getUserId)
-                .collect(Collectors.toSet()));
         contactsToAdd.removeAll(account.getContactIds());
         contactsToAdd.remove(account.getMid());
         for (String contactToAdd : contactsToAdd) {
@@ -135,7 +134,8 @@ class AccountManager {
         String myId = account.getMid();
         GuardGroup guardGroup = guard.getGroup(groupId);
 
-        Role myRole = guardGroup.getRoles().get(myId);
+        Map<String, Role> roles = guardGroup.getRoles();
+        Role myRole = roles.get(myId);
 
         boolean shouldLeave = false;
 
@@ -150,6 +150,7 @@ class AccountManager {
 
             backupGroupMembers(guardGroup, memberIds, blockIds);
             contactsToAdd.addAll(memberIds);
+            contactsToAdd.addAll(roles.keySet());
 
             if (Role.SUPPORTER.equals(myRole)) {
                 Instant joinedTime = groupJoinedTime.get(groupId);
@@ -171,7 +172,7 @@ class AccountManager {
     private Set<String> getGroupBlockedIds(@Nonnull GuardGroup guardGroup) throws IOException {
         return guardGroup.getBlockingRecords()
                 .stream()
-                .map(BlockingRecord::getAccountId)
+                .map(BlockingRecord::getUserId)
                 .collect(Collectors.toSet());
     }
 
@@ -179,15 +180,15 @@ class AccountManager {
             @Nonnull GuardGroup guardGroup,
             @Nonnull Set<String> groupMembers,
             @Nonnull Set<String> blockedMembers) throws IOException {
-        Instant expiryTime = guardGroup.getRecoveryExpiryTime();
+        GroupMetadata metadata = guardGroup.getMetadata();
+        Instant expiryTime = metadata.getRecoveryExpiryTime();
         long now = System.currentTimeMillis();
         String groupId = guardGroup.getId();
 
         if (expiryTime != null && expiryTime.toEpochMilli() >= now) {
-            MembersBackup backup = guardGroup.getMembersBackup();
             LOGGER.info("Recovering members of group {} from snapshot of time {}",
-                    groupId, backup.getBackupTime());
-            Set<String> membersBackup = backup.getMembers()
+                    groupId, metadata.getMembersBackupTime());
+            Set<String> membersBackup = guardGroup.getMembersBackup()
                     .stream()
                     .filter(memberId -> !groupMembers.contains(memberId) && !blockedMembers.contains(memberId))
                     .collect(Collectors.toSet());
@@ -201,13 +202,16 @@ class AccountManager {
             @Nonnull Set<String> blockedMembers) throws IOException {
         String groupId = guardGroup.getId();
         long now = System.currentTimeMillis();
-        Instant expiryTime = guardGroup.getRecoveryExpiryTime();
+        GroupMetadata metadata = guardGroup.getMetadata();
+        Instant expiryTime = metadata.getRecoveryExpiryTime();
         if (expiryTime == null || expiryTime.toEpochMilli() < now) {
             LOGGER.debug("Backing up members for group {}", groupId);
             Set<String> members = groupMembers.stream()
                     .filter(memberId -> !blockedMembers.contains(memberId))
                     .collect(Collectors.toSet());
-            guardGroup.setMembersBackup(new MembersBackup(members));
+            guardGroup.setMembersBackup(members);
+            metadata.setMembersBackupTime(Instant.now());
+            guardGroup.setMetadata(metadata);
         }
     }
 
@@ -294,7 +298,7 @@ class AccountManager {
      * @throws IOException IO error occurs.
      */
     private void onInvitedIntoGroup(@Nonnull String groupId)
-        throws IOException {
+            throws IOException {
         String myId = getId();
 
         // Get my role in the group
@@ -316,8 +320,8 @@ class AccountManager {
     /**
      * Someone has invited another user into a group.
      *
-     * @param groupId   Group ID.
-     * @param inviterId Inviter's ID. Not myself.
+     * @param groupId    Group ID.
+     * @param inviterId  Inviter's ID. Not myself.
      * @param inviteeIds List of invitee ID's.
      * @throws IOException
      */
@@ -335,10 +339,10 @@ class AccountManager {
         // Filter out the invitee's that are in the black list
         GuardGroup group = guard.getGroup(groupId);
         List<String> blockedInvitees = group.getBlockingRecords()
-            .stream()
-            .map(BlockingRecord::getAccountId)
-            .filter(inviteeIds::contains)
-            .collect(Collectors.toList());
+                .stream()
+                .map(BlockingRecord::getUserId)
+                .filter(inviteeIds::contains)
+                .collect(Collectors.toList());
         if (blockedInvitees.isEmpty()) {
             return;
         }
@@ -357,13 +361,16 @@ class AccountManager {
             return;
         }
         account.kickOutFromGroup(groupId, inviterId);
-        group.putBlockingRecord(new BlockingRecord(inviterId));
+        group.putBlockingRecord(
+                new BlockingRecord(
+                        inviterId,
+                        Instant.ofEpochMilli(System.currentTimeMillis() + DEFAULT_BLOCKING_MS)));
     }
 
     /**
      * I have invited another user into a group.
      *
-     * @param groupId Group ID.
+     * @param groupId    Group ID.
      * @param inviteeIds List of invitee ID's.
      * @throws IOException IO error occurs.
      */
@@ -384,7 +391,7 @@ class AccountManager {
         // Check if the invitee is in the black list
         List<String> blockedInvitee = group.getBlockingRecords()
                 .stream()
-                .map(BlockingRecord::getAccountId)
+                .map(BlockingRecord::getUserId)
                 .filter(inviteeIds::contains)
                 .collect(Collectors.toList());
 
@@ -425,10 +432,19 @@ class AccountManager {
             return;
         }
         GuardGroup guardGroup = guard.getGroup(groupId);
-        Set<String> oldGroupAdmins = guardGroup.getAdmins();
+        Set<String> oldGroupAdmins = getGroupAdmins(guardGroup.getRoles());
         if (oldGroupAdmins.isEmpty()) {
-            guardGroup.setAdmins(Collections.singleton(creator.getMid()));
+            guardGroup.addAdmin(creator.getMid());
         }
+    }
+
+    private Set<String> getGroupAdmins(Map<String, Role> roles) {
+        return roles
+                .entrySet()
+                .stream()
+                .filter((entry) -> Role.ADMIN.equals(entry.getValue()))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
     }
 
     /**
@@ -488,7 +504,7 @@ class AccountManager {
                 .stream()
                 .filter(entry ->
                         !memberIds.contains(entry.getKey()) &&
-                        Role.DEFENDER.equals(entry.getValue()))
+                                Role.DEFENDER.equals(entry.getValue()))
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
 
@@ -502,7 +518,7 @@ class AccountManager {
     }
 
     private void onNotifiedAcceptGroupInvitation(@Nonnull String groupId, @Nonnull String inviteeId)
-        throws IOException {
+            throws IOException {
         GuardGroup group = guard.getGroup(groupId);
         Set<String> blockIds = getGroupBlockedIds(group);
         if (blockIds.contains(inviteeId)) {
@@ -519,8 +535,8 @@ class AccountManager {
     /**
      * Another user has kicked out another user (maybe myself) from a group.
      *
-     * @param groupId   ID of the group.
-     * @param removerId ID of the user that kick out another user.
+     * @param groupId    ID of the group.
+     * @param removerId  ID of the user that kick out another user.
      * @param removedIds ID of the users that are kicked out.
      * @throws IOException IO error occurs.
      */
@@ -551,7 +567,7 @@ class AccountManager {
         }
 
         // If remover is admin of the group
-        if (group.getAdmins().contains(removerId)) {
+        if (getGroupAdmins(roles).contains(removerId)) {
 
             LOGGER.info("Admin {} of group {} has kicked out {}", removerId, groupId, removedIds);
 
@@ -561,9 +577,13 @@ class AccountManager {
 
         // Add the remover to black list first because I may have been kicked out
         // and the following operations may fail
-        group.putBlockingRecord(new BlockingRecord(removerId));
+        group.putBlockingRecord(new BlockingRecord(
+                removerId,
+                Instant.ofEpochMilli(System.currentTimeMillis() + DEFAULT_BLOCKING_MS)));
 
-        group.setRecoveryExpiryTime(Instant.now().plus(RECOVERY_MS, ChronoUnit.MILLIS));
+        GroupMetadata metadata = group.getMetadata();
+        metadata.setRecoveryExpiryTime(Instant.now().plus(RECOVERY_MS, ChronoUnit.MILLIS));
+        group.setMetadata(metadata);
 
         // Kick out remover
         account.kickOutFromGroup(groupId, removerId);
@@ -578,13 +598,13 @@ class AccountManager {
 
         Set<String> blockedIds = group.getBlockingRecords()
                 .stream()
-                .map(BlockingRecord::getAccountId)
+                .map(BlockingRecord::getUserId)
                 .collect(Collectors.toSet());
 
         invitees.addAll(removedIds
-            .stream()
-            .filter(removedId -> !blockedIds.contains(removedId))
-            .collect(Collectors.toList()));
+                .stream()
+                .filter(removedId -> !blockedIds.contains(removedId))
+                .collect(Collectors.toList()));
         invitees.remove(myId);
 
         // I must add the user as friend before inviting the user

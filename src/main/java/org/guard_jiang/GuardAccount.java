@@ -1,4 +1,6 @@
-package com.handoitadsf.line.group_guard;
+package org.guard_jiang;
+
+import org.guard_jiang.storage.Storage;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
@@ -18,11 +20,11 @@ public class GuardAccount {
     }
 
     @Nonnull
-    public AccountCredential getCredential() throws IOException {
-        return storage.getAccountCredential(mid);
+    public Credential getCredential() throws IOException {
+        return storage.getCredential(mid);
     }
 
-    public void setCredential(AccountCredential credential) throws IOException {
-        storage.setAccountCredential(mid, credential);
+    public void setCredential(Credential credential) throws IOException {
+        storage.setCredential(mid, credential);
     }
 }

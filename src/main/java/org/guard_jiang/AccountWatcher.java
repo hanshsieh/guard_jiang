@@ -1,4 +1,4 @@
-package com.handoitadsf.line.group_guard;
+package org.guard_jiang;
 
 import line.thrift.Operation;
 import org.slf4j.Logger;

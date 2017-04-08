@@ -1,12 +1,11 @@
-package com.handoitadsf.line.group_guard;
+package org.guard_jiang;
 
+import org.guard_jiang.storage.Storage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -48,7 +47,7 @@ public class Guard {
         if (!isStarted()) {
             throw new IllegalStateException("Not yet started");
         }
-        Set<String> accountIds = storage.getAccountIds();
+        Set<String> accountIds = storage.getUserIds();
         Iterator<Map.Entry<String, AccountManager>> itr = accountMgrs.entrySet().iterator();
         while (itr.hasNext()) {
             Map.Entry<String, AccountManager> entry = itr.next();
@@ -57,11 +56,11 @@ public class Guard {
                 itr.remove();
             }
         }
-        for (String accountId : storage.getAccountIds()) {
+        for (String accountId : accountIds) {
             if (accountMgrs.containsKey(accountId)) {
                 continue;
             }
-            AccountCredential credential = storage.getAccountCredential(accountId);
+            Credential credential = storage.getCredential(accountId);
             if (credential == null) {
                 LOGGER.warn("No account credential is available for {}", accountId);
                 continue;
@@ -76,7 +75,7 @@ public class Guard {
             accountMgrs.put(account.getMid(), new AccountManager(this, account));
             credential.setAuthToken(account.getAuthToken());
             credential.setCertificate(account.getCertificate());
-            storage.setAccountCredential(accountId, credential);
+            storage.setCredential(accountId, credential);
         }
 
         for (AccountManager accountManager : accountMgrs.values()) {
@@ -110,10 +109,5 @@ public class Guard {
     @Nonnull
     public GuardGroup getGroup(@Nonnull String groupId) throws IOException {
         return new GuardGroup(storage, groupId);
-    }
-
-    @Nonnull
-    public Map<Relation, Role> getRoles() throws IOException {
-        return storage.getRoles();
     }
 }

@@ -1,13 +1,15 @@
-package com.handoitadsf.line.group_guard;
+package org.guard_jiang.storage;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.guard_jiang.Credential;
+import org.guard_jiang.BlockingRecord;
+import org.guard_jiang.Relation;
+import org.guard_jiang.Role;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -22,26 +24,23 @@ import java.util.stream.Collectors;
 public class InMemoryStorage implements Storage {
 
     @Nonnull
-    private final Map<String, AccountCredential> credentials = new HashMap<>();
+    private final Map<String, Credential> credentials = new HashMap<>();
 
     @Nonnull
     private final Map<Relation, Role> roles = new HashMap<>();
 
     @Nonnull
-    private final Map<String, Set<String>> groupAdmins = new HashMap<>();
-
-    @Nonnull
     private final Map<String, Map<String, BlockingRecord>> groupBlockingRecords = new HashMap<>();
 
     @Nonnull
-    private final Map<String, Instant> groupRecoverExpiryTime = new HashMap<>();
+    private final Map<String, Set<String>> groupMembersBackup = new HashMap<>();
 
     @Nonnull
-    private final Map<String, MembersBackup> groupMembersBackup = new HashMap<>();
+    private final Map<String, GroupMetadata> groupsMeta = new HashMap<>();
 
     @Nonnull
     @Override
-    public Set<String> getAccountIds() throws IOException {
+    public Set<String> getUserIds() throws IOException {
         synchronized (credentials) {
             return ImmutableSet.copyOf(credentials.keySet());
         }
@@ -49,14 +48,14 @@ public class InMemoryStorage implements Storage {
 
     @Nullable
     @Override
-    public AccountCredential getAccountCredential(@Nonnull String mid) throws IOException {
+    public Credential getCredential(@Nonnull String mid) throws IOException {
         synchronized (credentials) {
             return credentials.get(mid);
         }
     }
 
     @Override
-    public void setAccountCredential(@Nonnull String mid, @Nonnull AccountCredential credential) throws IOException {
+    public void setCredential(@Nonnull String mid, @Nonnull Credential credential) throws IOException {
         synchronized (credentials) {
             credentials.put(mid, credential);
         }
@@ -75,30 +74,17 @@ public class InMemoryStorage implements Storage {
         }
     }
 
-    @Nonnull
     @Override
-    public Map<Relation, Role> getRoles() throws IOException {
+    public void setGroupRole(@Nonnull String groupId, @Nonnull String userId, @Nonnull Role role) throws IOException {
         synchronized (roles) {
-            return ImmutableMap.copyOf(roles);
-        }
-    }
-
-    @Nonnull
-    @Override
-    public Set<String> getGroupAdminIds(@Nonnull String groupId) {
-        synchronized (groupAdmins) {
-            Set<String> admins = groupAdmins.get(groupId);
-            if (admins == null) {
-                return Collections.emptySet();
-            }
-            return ImmutableSet.copyOf(admins);
+            roles.put(new Relation(userId, groupId), role);
         }
     }
 
     @Override
-    public void setGroupAdmins(@Nonnull String groupId, @Nonnull Set<String> admins) {
-        synchronized (groupAdmins) {
-            groupAdmins.put(groupId, admins);
+    public void removeGroupRole(@Nonnull String groupId, @Nonnull String userId) throws IOException {
+        synchronized (roles) {
+            roles.remove(new Relation(userId, groupId));
         }
     }
 
@@ -122,50 +108,44 @@ public class InMemoryStorage implements Storage {
     }
 
     @Override
-    public void putGroupBlockingRecord(@Nonnull String groupId, @Nonnull BlockingRecord blockingRecord) {
+    public void setGroupBlockingRecord(@Nonnull String groupId, @Nonnull BlockingRecord blockingRecord) {
         synchronized (groupBlockingRecords) {
             Map<String, BlockingRecord> records = groupBlockingRecords.get(groupId);
             if (records == null) {
                 records = new HashMap<>();
                 groupBlockingRecords.put(groupId, records);
             }
-            records.put(blockingRecord.getAccountId(), blockingRecord);
+            records.put(blockingRecord.getUserId(), blockingRecord);
         }
     }
 
     @Nonnull
     @Override
-    public MembersBackup getGroupMembersBackup(@Nonnull String groupId) throws IOException {
+    public Set<String> getGroupMembersBackup(@Nonnull String groupId) throws IOException {
         synchronized (groupMembersBackup) {
             return groupMembersBackup.get(groupId);
         }
     }
 
     @Override
-    public void setGroupMembersBackup(@Nonnull String groupId, @Nonnull MembersBackup backup) throws IOException {
+    public void setGroupMembersBackup(@Nonnull String groupId, @Nonnull Set<String> members) throws IOException {
         synchronized (groupMembersBackup) {
-            groupMembersBackup.put(groupId, backup);
+            groupMembersBackup.put(groupId, ImmutableSet.copyOf(members));
         }
     }
 
     @Nullable
     @Override
-    public Instant getGroupRecoveryExpiryTime(@Nonnull String groupId) throws IOException {
-        synchronized (groupRecoverExpiryTime) {
-            return groupRecoverExpiryTime.get(groupId);
+    public GroupMetadata getGroupMetadata(@Nonnull String groupId) throws IOException {
+        synchronized (groupsMeta) {
+            return groupsMeta.get(groupId);
         }
     }
 
     @Override
-    public void setGroupRecoveryExpiryTime(@Nonnull String groupId, @Nullable Instant expiryTime) throws IOException {
-        synchronized (groupRecoverExpiryTime) {
-            groupRecoverExpiryTime.put(groupId, expiryTime);
-        }
-    }
-
-    public void addRole(Relation relation, Role role) {
-        synchronized (roles) {
-            roles.put(relation, role);
+    public void setGroupMetadata(@Nonnull String groupId, @Nonnull GroupMetadata meta) throws IOException {
+        synchronized (groupsMeta) {
+            groupsMeta.put(groupId, meta);
         }
     }
 }

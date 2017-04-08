@@ -1,25 +1,20 @@
-package com.handoitadsf.line.group_guard;
+package org.guard_jiang;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import com.google.common.collect.ImmutableSet;
 import io.cslinmiso.line.model.LineClient;
-import io.cslinmiso.line.model.LineGroup;
 import line.thrift.Contact;
 import line.thrift.ContactSetting;
 import line.thrift.Group;
 import line.thrift.Operation;
-import line.thrift.Profile;
 import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransportException;
 import org.slf4j.Logger;
@@ -33,8 +28,8 @@ public class Account {
     private final LineClient client;
     private String mid;
     private Instant authTokenLastRefreshTime = null;
-    private final AccountCredential credential;
-    public Account(@Nonnull AccountCredential credential) throws IOException {
+    private final Credential credential;
+    public Account(@Nonnull Credential credential) throws IOException {
         this.client = new LineClient();
         this.credential = credential;
     }
