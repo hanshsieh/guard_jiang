@@ -2,6 +2,7 @@ package org.guard_jiang.storage;
 
 import org.apache.ibatis.annotations.Param;
 import org.guard_jiang.BlockingRecord;
+import org.guard_jiang.Chat;
 import org.guard_jiang.Credential;
 import org.guard_jiang.Role;
 import org.guard_jiang.UserRole;
@@ -18,7 +19,7 @@ import java.util.Set;
 public interface SqlStorageMapper {
 
     @Nonnull
-    Set<String> getUserIds();
+    Set<String> getUserIds(@Nonnull StorageEnv env);
 
     @Nullable
     Credential getCredential(@Param("userId") @Nonnull String id);
@@ -68,5 +69,15 @@ public interface SqlStorageMapper {
     @Nonnull
     void clearGroupMemberBackup(
             @Param("groupId") @Nonnull String groupId
+    );
+
+    @Nonnull
+    Chat getChat(
+            @Param("hostId") @Nonnull String hostId,
+            @Param("guestId") @Nonnull String guestId
+    );
+
+    void setChat(
+            @Param("chat") @Nonnull Chat chat
     );
 }

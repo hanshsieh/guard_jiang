@@ -1,5 +1,6 @@
 package org.guard_jiang.storage;
 
+import org.guard_jiang.Chat;
 import org.guard_jiang.Credential;
 import org.guard_jiang.BlockingRecord;
 import org.guard_jiang.Role;
@@ -45,4 +46,9 @@ public interface Storage {
     GroupMetadata getGroupMetadata(@Nonnull String groupId) throws IOException;
 
     void setGroupMetadata(@Nonnull String groupId, @Nonnull GroupMetadata meta) throws IOException;
+
+    @Nullable
+    Chat getChat(@Nonnull String hostId, @Nonnull String guestId) throws IOException;
+
+    void setChat(@Nonnull Chat chat) throws IOException;
 }

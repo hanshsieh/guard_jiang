@@ -1,3 +1,4 @@
+namespace java com.linecorp.thrift
 enum ApplicationType {
     IOS = 16;
     IOS_RC = 17;

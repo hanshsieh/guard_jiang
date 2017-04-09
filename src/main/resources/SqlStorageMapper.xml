@@ -4,7 +4,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.guard_jiang.storage.SqlStorageMapper">
     <select id="getUserIds" resultType="String">
-        select id from user
+        select id from user where env = #{env}
     </select>
     <select id="getCredential" resultType="org.guard_jiang.Credential" timeout="3">
         select
@@ -15,19 +15,13 @@
         from "user" where id = #{userId}
     </select>
     <insert id="setCredential" timeout="3">
-        insert or replace into "user" (
-                id,
-                email,
-                password,
-                certificate,
-                auth_token)
-            values (
-                #{userId},
-                #{credential.email},
-                #{credential.password},
-                #{credential.certificate, jdbcType=VARCHAR},
-                #{credential.authToken, jdbcType=VARCHAR}
-            )
+        update "user" set
+            email = #{credential.email},
+            password = #{credential.password},
+            certificate = #{credential.certificate, jdbcType=VARCHAR},
+            auth_token = #{credential.authToken, jdbcType=VARCHAR}
+        where
+            id = #{userId}
     </insert>
     <insert id="setGroupRole" timeout="3">
         insert or replace into "role" (
@@ -109,10 +103,42 @@
             group_id = #{groupId}
     </delete>
 
+    <select id="getChat" resultMap="chat" timeout="3">
+        select
+            host_id,
+            guest_id,
+            status,
+            metadata
+        from "chat" where host_id = #{hostId} and guest_id = #{guestId}
+    </select>
+
+    <insert id="setChat" timeout="3">
+        insert or replace into "chat" (
+            host_id,
+            guest_id,
+            status,
+            metadata)
+        values (
+            #{chat.hostId},
+            #{chat.guestId},
+            #{chat.status},
+            #{chat.metadata}
+        )
+    </insert>
+
     <resultMap id="groupBlockingRecords" type="org.guard_jiang.BlockingRecord">
         <constructor>
             <idArg column="user_id" javaType="String" />
             <arg column="expiry_ts" javaType="java.time.Instant" />
         </constructor>
+    </resultMap>
+
+    <resultMap id="chat" type="org.guard_jiang.Chat">
+        <constructor>
+            <idArg column="host_id" javaType="String" />
+            <idArg column="guest_id" javaType="String" />
+        </constructor>
+        <result property="status" column="status" />
+        <result property="metadata" column="metadata" typeHandler="org.guard_jiang.storage.JsonMapTypeHandler"/>
     </resultMap>
 </mapper>

@@ -14,6 +14,7 @@ import io.cslinmiso.line.model.LineClient;
 import line.thrift.Contact;
 import line.thrift.ContactSetting;
 import line.thrift.Group;
+import line.thrift.Message;
 import line.thrift.Operation;
 import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransportException;
@@ -43,7 +44,7 @@ public class Account {
                     client.loginWithAuthToken(credential.getAuthToken());
                     loggedIn = true;
                 } catch (TException ex) {
-                    LOGGER.debug("Fail to login with auth token", ex);
+                    LOGGER.debug("Fail to login with auth token: {}", ex.getMessage());
                 }
             }
             if (!loggedIn) {
@@ -234,6 +235,15 @@ public class Account {
             client.getApi().updateContactSetting(0, contact, ContactSetting.CONTACT_SETTING_DELETE, "true");
         } catch (Exception ex) {
             throw new IOException("Fail to remove contact " + contact, ex);
+        }
+    }
+
+    public Message sendMessage(@Nonnull Message message) throws IOException {
+        try {
+            LOGGER.debug("User {} is sending message to {}", mid, message.getToId());
+            return client.getApi().sendMessage(0, message);
+        } catch (Exception ex) {
+            throw new IOException("Fail to send message to " + message.getToId());
         }
     }
 

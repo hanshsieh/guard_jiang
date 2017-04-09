@@ -1,7 +1,10 @@
 package org.guard_jiang;
 
 import line.thrift.Contact;
+import line.thrift.ContentType;
 import line.thrift.Group;
+import line.thrift.MIDType;
+import line.thrift.Message;
 import line.thrift.Operation;
 import org.guard_jiang.storage.GroupMetadata;
 import org.slf4j.Logger;
@@ -41,9 +44,12 @@ class AccountManager {
     // A map from group ID to the time when I joined the group
     private Map<String, Instant> groupJoinedTime = new HashMap<>();
 
-    public AccountManager(Guard guard, @Nonnull Account account) {
+    private final MessageManager messageManager;
+
+    public AccountManager(@Nonnull Guard guard, @Nonnull Account account) {
         this.guard = guard;
         this.account = account;
+        this.messageManager = new MessageManager(guard, account);
     }
 
     public boolean isStarted() {
@@ -285,9 +291,14 @@ class AccountManager {
                 break;
             case LEAVE_GROUP:
                 onLeaveGroup(operation.getParam1());
+                break;
 
             case NOTIFIED_LEAVE_GROUP:
                 onNotifiedLeaveGroup(operation.getParam1(), operation.getParam2());
+                break;
+
+            case RECEIVE_MESSAGE:
+                onReceiveMessage(operation.getMessage());
         }
     }
 
@@ -413,6 +424,10 @@ class AccountManager {
                 guardGroup,
                 getGroupMemberIds(groupId),
                 getGroupBlockedIds(guardGroup));
+    }
+
+    private void onReceiveMessage(@Nonnull Message message) throws IOException {
+        messageManager.onReceiveMessage(message);
     }
 
     private boolean shouldAcceptInvitation(Role role) {

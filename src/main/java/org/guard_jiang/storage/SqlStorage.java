@@ -2,6 +2,7 @@ package org.guard_jiang.storage;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.guard_jiang.Chat;
 import org.guard_jiang.Credential;
 import org.guard_jiang.BlockingRecord;
 import org.guard_jiang.Role;
@@ -25,12 +26,13 @@ import java.util.stream.Collectors;
 
 /**
  *
- * CREATE TABLE "user" (
+ * CREATE TABLE "user2" (
  *      id VARCHAR PRIMARY KEY NOT NULL,
  *      email VARCHAR NOT NULL,
  *      password VARCHAR NOT NULL,
  *      certificate VARCHAR NOT NULL,
- *      auth_token VARCHAR DEFAULT NULL);
+ *      auth_token VARCHAR DEFAULT NULL,
+ *      env TINYINT NOT NULL);
  *
  * CREATE TABLE "group" (
  *      id VARCHAR PRIMARY KEY NOT NULL,
@@ -58,7 +60,20 @@ import java.util.stream.Collectors;
  *      user_id VARCHAR NOT NULL
  * );
  *
- * CREATE UNIQUE INDEX group_member_group_id_user_id_u_idx ON group_member_backup(group_id, user_id);
+ * CREATE UNIQUE INDEX group_member_backup_group_id_user_id_u_idx ON group_member_backup(group_id, user_id);
+ *
+ * CREATE INDEX group_member_backup_group_id ON group_member_backup(group_id);
+ *
+ * CREATE TABLE "chat" (
+ *      host_id VARCHAR NOT NULL REFERENCES "user"(id),
+ *      guest_id VARCHAR NOT NULL,
+ *      status INT NOT NULL,
+ *      metadata VARCHAR NOT NULL
+ * );
+ *
+ * CREATE UNIQUE INDEX chat_host_id_guest_id_u_idx ON "chat"(host_id, guest_id);
+ *
+ * CREATE INDEX chat_host_id ON "chat"(host_id);
  */
 public class SqlStorage implements Storage {
 
@@ -66,54 +81,17 @@ public class SqlStorage implements Storage {
 
     private final SqlSessionFactory sessionFactory;
 
-    public SqlStorage() throws IOException {
+    private final StorageEnv env;
+
+    public SqlStorage(@Nonnull StorageEnv env) throws IOException {
+        this.env = env;
         try (Reader configReader = Resources.getResourceAsReader(CONFIG_FILE)) {
             sessionFactory = new SqlSessionFactoryBuilder().build(configReader);
         }
     }
 
-    public static void main(String[] args) throws Throwable {
-        SqlStorage storage = new SqlStorage();
-        Config config = ConfigFactory.load("config.conf");
-        /*
-        List<? extends Config> accountsConf = config.getConfigList("accounts");
-        for (Config accountConf : accountsConf) {
-            String mid = accountConf.getString("mid");
-            String email = accountConf.getString("email");
-            String password = accountConf.getString("password");
-            String certificate = accountConf.getString("certificate");
-            String authToken = accountConf.getString("authToken");
-            Credential credential = new Credential();
-            credential.setEmail(email);
-            credential.setPassword(password);
-            credential.setCertificate(certificate);
-            credential.setAuthToken(authToken);
-            storage.setCredential(mid, credential);
-        }
-*/
-
-
-        List<? extends Config> groupsConf = config.getConfigList("groups");
-        for (Config groupConf : groupsConf) {
-            String groupId = groupConf.getString("id");
-            for (String userId : groupConf.getStringList("defenders")) {
-                storage.setGroupRole(
-                        groupId, userId, Role.DEFENDER);
-            }
-            for (String userId : groupConf.getStringList("supporters")) {
-                storage.setGroupRole(
-                        groupId, userId, Role.SUPPORTER);
-            }
-            for (String userId : groupConf.getStringList("admins")) {
-                storage.setGroupRole(
-                        groupId, userId, Role.ADMIN);
-            }
-            Map<String, Role> roles = storage.getGroupRoles(groupId);
-            System.out.println("Role for group " + groupId + ": " + roles);
-        }
-    }
-
-    public SqlStorage(@Nonnull SqlSessionFactory sqlSessionFactory) {
+    public SqlStorage(@Nonnull StorageEnv env, @Nonnull SqlSessionFactory sqlSessionFactory) {
+        this.env = env;
         this.sessionFactory = sqlSessionFactory;
     }
 
@@ -122,7 +100,7 @@ public class SqlStorage implements Storage {
     public Set<String> getUserIds() throws IOException {
         try (SqlSession session = sessionFactory.openSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            return mapper.getUserIds();
+            return mapper.getUserIds(env);
         }
     }
 
@@ -233,6 +211,24 @@ public class SqlStorage implements Storage {
         try (SqlSession session = sessionFactory.openSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
             mapper.setGroupMetadata(groupId, meta);
+            session.commit();
+        }
+    }
+
+    @Nonnull
+    @Override
+    public Chat getChat(@Nonnull String hostId, @Nonnull String guestId) throws IOException {
+        try (SqlSession session = sessionFactory.openSession()) {
+            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
+            return mapper.getChat(hostId, guestId);
+        }
+    }
+
+    @Override
+    public void setChat(@Nonnull Chat chat) throws IOException {
+        try (SqlSession session = sessionFactory.openSession()) {
+            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
+            mapper.setChat(chat);
             session.commit();
         }
     }

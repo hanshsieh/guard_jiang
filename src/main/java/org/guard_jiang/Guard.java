@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -104,6 +105,15 @@ public class Guard {
             }
         }
         accountMgrs.clear();
+    }
+
+    @Nullable
+    public Chat getChat(@Nonnull String hostId, @Nonnull String guestId) throws IOException {
+        return storage.getChat(hostId, guestId);
+    }
+
+    public void setChat(@Nonnull Chat chat) throws IOException {
+        storage.setChat(chat);
     }
 
     @Nonnull

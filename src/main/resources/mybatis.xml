@@ -13,6 +13,8 @@
     <typeHandlers>
         <typeHandler handler="org.apache.ibatis.type.EnumOrdinalTypeHandler" javaType="org.guard_jiang.Role"/>
         <typeHandler handler="org.guard_jiang.storage.InstantTypeHandler" javaType="java.time.Instant"/>
+        <typeHandler handler="org.guard_jiang.storage.ChatStatusTypeHandler" javaType="org.guard_jiang.ChatStatus"/>
+        <typeHandler handler="org.guard_jiang.storage.StorageEnvTypeHandler" javaType="org.guard_jiang.storage.StorageEnv"/>
     </typeHandlers>
     <environments default="development">
         <environment id="development">
