@@ -3,12 +3,15 @@ package org.guard_jiang.storage;
 import org.guard_jiang.Chat;
 import org.guard_jiang.Credential;
 import org.guard_jiang.BlockingRecord;
+import org.guard_jiang.License;
+import org.guard_jiang.message.ChatEnv;
 import org.guard_jiang.Role;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -48,7 +51,22 @@ public interface Storage {
     void setGroupMetadata(@Nonnull String groupId, @Nonnull GroupMetadata meta) throws IOException;
 
     @Nullable
-    Chat getChat(@Nonnull String hostId, @Nonnull String guestId) throws IOException;
+    Chat getChat(@Nonnull String hostId, @Nonnull String guestId, @Nonnull ChatEnv env) throws IOException;
 
     void setChat(@Nonnull Chat chat) throws IOException;
+
+    @Nonnull
+    List<License> getLicensesOfUser(@Nonnull String userId) throws IOException;
+
+    void createLicense(@Nonnull License license) throws IOException;
+
+    void bindLicenseToUser(
+            @Nonnull String licenseKey,
+            @Nonnull String userId) throws IOException;
+
+    void updateLicenseUsage(
+            @Nonnull String key,
+            int defendersAdd,
+            int supportersAdd
+    ) throws IOException;
 }

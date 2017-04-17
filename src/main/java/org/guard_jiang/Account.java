@@ -272,4 +272,14 @@ public class Account {
             throw new IOException("Fail to refresh auth token", ex);
         }
     }
+
+    @Nonnull
+    public Group findGroupByTicket(@Nonnull String ticketId) throws IOException {
+        try {
+            return client.getApi().findGroupByTicket(ticketId);
+        } catch (TException ex) {
+            // TODO handle not found case
+            throw new IOException("Fail to find group by ticket", ex);
+        }
+    }
 }

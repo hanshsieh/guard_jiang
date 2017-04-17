@@ -4,6 +4,9 @@ import org.apache.ibatis.annotations.Param;
 import org.guard_jiang.BlockingRecord;
 import org.guard_jiang.Chat;
 import org.guard_jiang.Credential;
+import org.guard_jiang.License;
+import org.guard_jiang.message.ChatEnv;
+import org.guard_jiang.message.ChatEnvType;
 import org.guard_jiang.Role;
 import org.guard_jiang.UserRole;
 
@@ -74,10 +77,29 @@ public interface SqlStorageMapper {
     @Nonnull
     Chat getChat(
             @Param("hostId") @Nonnull String hostId,
-            @Param("guestId") @Nonnull String guestId
+            @Param("guestId") @Nonnull String guestId,
+            @Param("chatEnv") @Nonnull ChatEnv chatEnv
     );
 
     void setChat(
             @Param("chat") @Nonnull Chat chat
+    );
+
+    @Nonnull
+    List<License> getLicensesOfUser(
+            @Param("userId") @Nonnull String userId);
+
+    void createLicense(
+            @Param("license") @Nonnull License license
+    );
+
+    void bindLicenseToUser(
+            @Param("key") @Nonnull String licenseKey,
+            @Param("userId") @Nonnull String userId);
+
+    void updateLicenseUsage(
+            @Param("key") @Nonnull String key,
+            @Param("defendersAdd") int defendersAdd,
+            @Param("supportersAdd") int supportersAdd
     );
 }

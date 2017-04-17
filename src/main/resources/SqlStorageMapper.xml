@@ -107,24 +107,86 @@
         select
             host_id,
             guest_id,
+            env_type,
+            env_id,
             status,
             metadata
-        from "chat" where host_id = #{hostId} and guest_id = #{guestId}
+        from "chat" where
+            host_id = #{hostId} and
+            guest_id = #{guestId} and
+            env_type = #{chatEnv.type} and
+            env_id = #{chatEnv.id, javaType=String}
     </select>
 
     <insert id="setChat" timeout="3">
         insert or replace into "chat" (
             host_id,
             guest_id,
+            env_type,
+            env_id,
             status,
             metadata)
         values (
             #{chat.hostId},
             #{chat.guestId},
+            #{chat.chatEnv.type},
+            #{chat.chatEnv.id, javaType=String},
             #{chat.status},
-            #{chat.metadata}
+            #{chat.metadata, typeHandler=org.guard_jiang.storage.JsonMapTypeHandler}
         )
     </insert>
+
+    <select id="getLicensesOfUser" resultMap="license" timeout="3">
+        select
+            key,
+            user_id,
+            create_ts,
+            expiry_ts,
+            max_defenders,
+            num_defenders,
+            max_supporters,
+            num_supporters
+        from "license" where
+            user_id = #{userId}
+        order by create_ts desc
+    </select>
+
+    <insert id="createLicense" timeout="3">
+        insert into "license" (
+            key,
+            user_id,
+            create_ts,
+            expiry_ts,
+            max_defenders,
+            num_defenders,
+            max_supporters,
+            num_supporters
+        ) values (
+            #{license.key},
+            #{license.userId},
+            #{license.createTime},
+            #{license.expiryTime},
+            #{license.maxDefenders},
+            #{license.numDefenders},
+            #{license.maxSupporters},
+            #{license.numSupporters}
+        )
+    </insert>
+
+    <update id="bindLicenseToUser" timeout="3">
+        update "license" set
+            user_id = #{userId}
+        where
+            key = #{key}
+    </update>
+
+    <update id="updateLicenseUsage" timeout="3">
+        update "license" set
+            num_defenders = num_defenders + #{defendersAdd},
+            num_supporters = num_supporters + #{supportersAdd}
+        where
+            key = #{key}
+    </update>
 
     <resultMap id="groupBlockingRecords" type="org.guard_jiang.BlockingRecord">
         <constructor>
@@ -137,8 +199,29 @@
         <constructor>
             <idArg column="host_id" javaType="String" />
             <idArg column="guest_id" javaType="String" />
+            <idArg javaType="org.guard_jiang.message.ChatEnv" resultMap="chatEnv"/>
         </constructor>
         <result property="status" column="status" />
         <result property="metadata" column="metadata" typeHandler="org.guard_jiang.storage.JsonMapTypeHandler"/>
+    </resultMap>
+
+    <resultMap id="chatEnv" type="org.guard_jiang.message.ChatEnv">
+        <constructor>
+            <idArg column="env_type" javaType="org.guard_jiang.message.ChatEnvType" />
+            <idArg column="env_id" javaType="String" />
+        </constructor>
+    </resultMap>
+
+    <resultMap id="license" type="org.guard_jiang.License">
+        <constructor>
+            <idArg column="key" javaType="String" />
+        </constructor>
+        <result property="userId" column="user_id" />
+        <result property="createTime" column="create_ts" />
+        <result property="expiryTime" column="expiry_ts" />
+        <result property="maxDefenders" column="max_defenders" />
+        <result property="numDefenders" column="num_defenders" />
+        <result property="maxSupporters" column="max_supporters" />
+        <result property="numSupporters" column="num_supporters" />
     </resultMap>
 </mapper>

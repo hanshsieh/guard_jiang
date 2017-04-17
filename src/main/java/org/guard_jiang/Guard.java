@@ -1,14 +1,19 @@
 package org.guard_jiang;
 
+import org.guard_jiang.message.ChatEnv;
+import org.guard_jiang.message.ChatEnvType;
 import org.guard_jiang.storage.Storage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.jws.Oneway;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -18,13 +23,17 @@ import java.util.Set;
 public class Guard {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Guard.class);
+    private static final int TRIAL_MAX_DEFENDERS = 2;
+    private static final int TRIAL_MAX_SUPPORTERS = 1;
 
     private final Map<String, AccountManager> accountMgrs = new HashMap<>();
     private boolean started = false;
     private final Storage storage;
+    private final LicenseKeyProvider licenseKeyProvider;
 
     public Guard(@Nonnull Storage storage) throws IOException {
         this.storage = storage;
+        this.licenseKeyProvider = new LicenseKeyProvider();
     }
 
     public synchronized void start() throws
@@ -108,8 +117,9 @@ public class Guard {
     }
 
     @Nullable
-    public Chat getChat(@Nonnull String hostId, @Nonnull String guestId) throws IOException {
-        return storage.getChat(hostId, guestId);
+    public Chat getChat(@Nonnull String hostId, @Nonnull String guestId, @Nonnull ChatEnv env)
+            throws IOException {
+        return storage.getChat(hostId, guestId, env);
     }
 
     public void setChat(@Nonnull Chat chat) throws IOException {
@@ -119,5 +129,30 @@ public class Guard {
     @Nonnull
     public GuardGroup getGroup(@Nonnull String groupId) throws IOException {
         return new GuardGroup(storage, groupId);
+    }
+
+    @Nonnull
+    public List<License> getLicensesOfUser(@Nonnull String userId) throws IOException {
+        return storage.getLicensesOfUser(userId);
+    }
+
+    @Nonnull
+    public License createTrialLicense() throws IOException {
+        String key = licenseKeyProvider.buildLicenseKey();
+        License license = new License(key);
+        license.setCreateTime(Instant.now());
+        license.setMaxDefenders(TRIAL_MAX_DEFENDERS);
+        license.setMaxSupporters(TRIAL_MAX_SUPPORTERS);
+        storage.createLicense(license);
+        return license;
+    }
+
+    public void bindLicenseToUser(@Nonnull String licenseKey, @Nonnull String userId) throws IOException {
+        storage.bindLicenseToUser(licenseKey, userId);
+    }
+
+    @Nonnull
+    public LicenseKeyProvider getLicenseKeyProvider() {
+        return licenseKeyProvider;
     }
 }

@@ -1,11 +1,10 @@
 package org.guard_jiang;
 
 import line.thrift.Contact;
-import line.thrift.ContentType;
 import line.thrift.Group;
-import line.thrift.MIDType;
 import line.thrift.Message;
 import line.thrift.Operation;
+import org.guard_jiang.message.MessageManager;
 import org.guard_jiang.storage.GroupMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,16 +100,9 @@ class AccountManager {
     }
 
     private void checkInvitedGroups() throws IOException {
-        String myId = account.getMid();
         List<String> groupIdsInvited = account.getGroupIdsInvited();
         for (String groupId : groupIdsInvited) {
-            GuardGroup group = guard.getGroup(groupId);
-            Role myRole = group.getRoles().get(myId);
-            if (shouldAcceptInvitation(myRole)) {
-                account.acceptGroupInvitation(groupId);
-            } else {
-                account.rejectGroupInvitation(groupId);
-            }
+            account.acceptGroupInvitation(groupId);
         }
     }
 
@@ -145,9 +137,7 @@ class AccountManager {
 
         boolean shouldLeave = false;
 
-        if (!shouldAcceptInvitation(myRole)) {
-            shouldLeave = true;
-        } else {
+        if (isGuardRole(myRole)) {
             Set<String> memberIds = getGroupMemberIds(groupId);
             Set<String> blockIds = getGroupBlockedIds(guardGroup);
 
@@ -157,13 +147,13 @@ class AccountManager {
             backupGroupMembers(guardGroup, memberIds, blockIds);
             contactsToAdd.addAll(memberIds);
             contactsToAdd.addAll(roles.keySet());
+        }
 
-            if (Role.SUPPORTER.equals(myRole)) {
-                Instant joinedTime = groupJoinedTime.get(groupId);
-                if (joinedTime == null ||
-                        now - joinedTime.toEpochMilli() > SUPPORTING_MS) {
-                    shouldLeave = true;
-                }
+        if (!Role.DEFENDER.equals(myRole)) {
+            Instant joinedTime = groupJoinedTime.get(groupId);
+            if (joinedTime == null ||
+                    now - joinedTime.toEpochMilli() > SUPPORTING_MS) {
+                shouldLeave = true;
             }
         }
 
@@ -299,6 +289,7 @@ class AccountManager {
 
             case RECEIVE_MESSAGE:
                 onReceiveMessage(operation.getMessage());
+                break;
         }
     }
 
@@ -310,22 +301,7 @@ class AccountManager {
      */
     private void onInvitedIntoGroup(@Nonnull String groupId)
             throws IOException {
-        String myId = getId();
-
-        // Get my role in the group
-        GuardGroup group = guard.getGroup(groupId);
-        Map<String, Role> roles = group.getRoles();
-        Role myRole = roles.get(myId);
-        if (!shouldAcceptInvitation(myRole)) {
-
-            // I don't have role in the group
-            // Cancel the invitation
-            account.rejectGroupInvitation(groupId);
-        } else {
-
-            // I'm defender or supporter of the group, so I should join the group
-            account.acceptGroupInvitation(groupId);
-        }
+        account.acceptGroupInvitation(groupId);
     }
 
     /**
@@ -352,7 +328,7 @@ class AccountManager {
         List<String> blockedInvitees = group.getBlockingRecords()
                 .stream()
                 .map(BlockingRecord::getUserId)
-                .filter(inviteeIds::contains)
+                .filter(userId -> inviteeIds.contains(userId) && !myId.equals(userId))
                 .collect(Collectors.toList());
         if (blockedInvitees.isEmpty()) {
             return;
@@ -430,7 +406,7 @@ class AccountManager {
         messageManager.onReceiveMessage(message);
     }
 
-    private boolean shouldAcceptInvitation(Role role) {
+    private boolean isGuardRole(Role role) {
         return Role.DEFENDER.equals(role) || Role.SUPPORTER.equals(role);
     }
 
@@ -480,11 +456,8 @@ class AccountManager {
         // Get my role in the group
         Role myRole = group.getRoles().get(myId);
 
-        // I shouldn't have accepted the group invitation
-        if (!shouldAcceptInvitation(myRole)) {
+        if (!isGuardRole(myRole)) {
 
-            // Leave the group
-            account.leaveGroup(groupId);
             return;
         }
 
@@ -569,7 +542,7 @@ class AccountManager {
         Role myRole = roles.get(myId);
 
         // If I'm not a defender or supporter
-        if (!shouldAcceptInvitation(myRole)) {
+        if (!isGuardRole(myRole)) {
 
             // Do nothing
             return;
@@ -577,7 +550,7 @@ class AccountManager {
 
         // If the remover is our own guy
         Role removerRole = roles.get(removerId);
-        if (shouldAcceptInvitation(removerRole)) {
+        if (isGuardRole(removerRole)) {
             return;
         }
 

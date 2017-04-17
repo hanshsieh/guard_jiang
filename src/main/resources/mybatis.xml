@@ -15,6 +15,7 @@
         <typeHandler handler="org.guard_jiang.storage.InstantTypeHandler" javaType="java.time.Instant"/>
         <typeHandler handler="org.guard_jiang.storage.ChatStatusTypeHandler" javaType="org.guard_jiang.ChatStatus"/>
         <typeHandler handler="org.guard_jiang.storage.StorageEnvTypeHandler" javaType="org.guard_jiang.storage.StorageEnv"/>
+        <typeHandler handler="org.guard_jiang.storage.MemberTypeTypeHandler" javaType="org.guard_jiang.message.ChatEnvType"/>
     </typeHandlers>
     <environments default="development">
         <environment id="development">

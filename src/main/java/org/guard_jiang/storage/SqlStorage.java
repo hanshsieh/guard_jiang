@@ -1,10 +1,10 @@
 package org.guard_jiang.storage;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.guard_jiang.Chat;
 import org.guard_jiang.Credential;
 import org.guard_jiang.BlockingRecord;
+import org.guard_jiang.License;
+import org.guard_jiang.message.ChatEnv;
 import org.guard_jiang.Role;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -16,9 +16,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.Reader;
-import java.time.Instant;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -67,13 +65,30 @@ import java.util.stream.Collectors;
  * CREATE TABLE "chat" (
  *      host_id VARCHAR NOT NULL REFERENCES "user"(id),
  *      guest_id VARCHAR NOT NULL,
+ *      env_type TINYINT NOT NULL,
+ *      env_id VARCHAR NOT NULL,
  *      status INT NOT NULL,
  *      metadata VARCHAR NOT NULL
  * );
  *
- * CREATE UNIQUE INDEX chat_host_id_guest_id_u_idx ON "chat"(host_id, guest_id);
+ * CREATE UNIQUE INDEX chat_host_guest_id_env_u_idx ON "chat"(host_id, guest_id, env_type, env_id);
  *
  * CREATE INDEX chat_host_id ON "chat"(host_id);
+ *
+ * CREATE TABLE "license" (
+ *      key VARCHAR NOT NULL,
+ *      user_id VARCHAR,
+ *      create_ts BIGINT NOT NULL,
+ *      expiry_ts BIGINT DEFAULT NULL,
+ *      max_defenders INTEGER NOT NULL,
+ *      num_defenders INTEGER NOT NULL DEFAULT 0 CHECK (num_defenders >= 0 AND num_defenders <= max_defenders),
+ *      max_supporters INTEGER NOT NULL,
+ *      num_supporters INTEGER NOT NULL DEFAULT 0 CHECK (num_supporters >= 0 AND num_supporters <= max_supporters)
+ * );
+ *
+ * CREATE UNIQUE INDEX license_key_u_idx ON "license"(key);
+ *
+ * CREATE INDEX license_user_id ON "license"(user_id);
  */
 public class SqlStorage implements Storage {
 
@@ -216,11 +231,13 @@ public class SqlStorage implements Storage {
     }
 
     @Nonnull
-    @Override
-    public Chat getChat(@Nonnull String hostId, @Nonnull String guestId) throws IOException {
+    public Chat getChat(
+            @Nonnull String hostId,
+            @Nonnull String guestId,
+            @Nonnull ChatEnv env) throws IOException {
         try (SqlSession session = sessionFactory.openSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            return mapper.getChat(hostId, guestId);
+            return mapper.getChat(hostId, guestId, env);
         }
     }
 
@@ -229,6 +246,42 @@ public class SqlStorage implements Storage {
         try (SqlSession session = sessionFactory.openSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
             mapper.setChat(chat);
+            session.commit();
+        }
+    }
+
+    @Nonnull
+    @Override
+    public List<License> getLicensesOfUser(@Nonnull String userId) throws IOException {
+        try (SqlSession session = sessionFactory.openSession()) {
+            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
+            return mapper.getLicensesOfUser(userId);
+        }
+    }
+
+    @Override
+    public void createLicense(@Nonnull License license) throws IOException {
+        try (SqlSession session = sessionFactory.openSession()) {
+            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
+            mapper.createLicense(license);
+            session.commit();
+        }
+    }
+
+    @Override
+    public void bindLicenseToUser(@Nonnull String licenseKey, @Nonnull String userId) throws IOException {
+        try (SqlSession session = sessionFactory.openSession()) {
+            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
+            mapper.bindLicenseToUser(licenseKey, userId);
+            session.commit();
+        }
+    }
+
+    @Override
+    public void updateLicenseUsage(@Nonnull String key, int defendersAdd, int supportersAdd) throws IOException {
+        try (SqlSession session = sessionFactory.openSession()) {
+            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
+            mapper.updateLicenseUsage(key, defendersAdd, supportersAdd);
             session.commit();
         }
     }
