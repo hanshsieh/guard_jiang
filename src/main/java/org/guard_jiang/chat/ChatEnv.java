@@ -1,4 +1,4 @@
-package org.guard_jiang.message;
+package org.guard_jiang.chat;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

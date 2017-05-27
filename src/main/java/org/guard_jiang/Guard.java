@@ -1,14 +1,13 @@
 package org.guard_jiang;
 
-import org.guard_jiang.message.ChatEnv;
-import org.guard_jiang.message.ChatEnvType;
+import org.guard_jiang.chat.Chat;
+import org.guard_jiang.chat.ChatEnv;
 import org.guard_jiang.storage.Storage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.jws.Oneway;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.HashMap;
@@ -116,10 +115,14 @@ public class Guard {
         accountMgrs.clear();
     }
 
-    @Nullable
+    @Nonnull
     public Chat getChat(@Nonnull String hostId, @Nonnull String guestId, @Nonnull ChatEnv env)
             throws IOException {
-        return storage.getChat(hostId, guestId, env);
+        Chat chat = storage.getChat(hostId, guestId, env);
+        if (chat == null) {
+            chat = new Chat(hostId, guestId, env);
+        }
+        return chat;
     }
 
     public void setChat(@Nonnull Chat chat) throws IOException {

@@ -2,11 +2,10 @@ package org.guard_jiang.storage;
 
 import org.apache.ibatis.annotations.Param;
 import org.guard_jiang.BlockingRecord;
-import org.guard_jiang.Chat;
+import org.guard_jiang.chat.Chat;
 import org.guard_jiang.Credential;
 import org.guard_jiang.License;
-import org.guard_jiang.message.ChatEnv;
-import org.guard_jiang.message.ChatEnvType;
+import org.guard_jiang.chat.ChatEnv;
 import org.guard_jiang.Role;
 import org.guard_jiang.UserRole;
 

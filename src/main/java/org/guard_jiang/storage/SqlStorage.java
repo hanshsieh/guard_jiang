@@ -1,10 +1,10 @@
 package org.guard_jiang.storage;
 
-import org.guard_jiang.Chat;
+import org.guard_jiang.chat.Chat;
 import org.guard_jiang.Credential;
 import org.guard_jiang.BlockingRecord;
 import org.guard_jiang.License;
-import org.guard_jiang.message.ChatEnv;
+import org.guard_jiang.chat.ChatEnv;
 import org.guard_jiang.Role;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -41,7 +41,9 @@ import java.util.stream.Collectors;
  * CREATE TABLE "role" (
  *      group_id VARCHAR NOT NULL,
  *      user_id VARCHAR NOT NULL, -- It may reference a user not in the "user" table
- *      role UNSIGNED TINYINT NOT NULL -- 0: defender, 1: supporter, 2: admin
+ *      role UNSIGNED TINYINT NOT NULL, -- 0: defender, 1: supporter, 2: admin
+ *      license_key VARCHAR NOT NULL,
+ *      FOREIGN KEY(license_key) REFERENCES license(key)
  * );
  *
  * CREATE UNIQUE INDEX role_group_id_user_id_u_idx ON role(group_id, user_id);
@@ -76,7 +78,7 @@ import java.util.stream.Collectors;
  * CREATE INDEX chat_host_id ON "chat"(host_id);
  *
  * CREATE TABLE "license" (
- *      key VARCHAR NOT NULL,
+ *      key VARCHAR PRIMARY KEY NOT NULL,
  *      user_id VARCHAR,
  *      create_ts BIGINT NOT NULL,
  *      expiry_ts BIGINT DEFAULT NULL,
@@ -85,8 +87,6 @@ import java.util.stream.Collectors;
  *      max_supporters INTEGER NOT NULL,
  *      num_supporters INTEGER NOT NULL DEFAULT 0 CHECK (num_supporters >= 0 AND num_supporters <= max_supporters)
  * );
- *
- * CREATE UNIQUE INDEX license_key_u_idx ON "license"(key);
  *
  * CREATE INDEX license_user_id ON "license"(user_id);
  */

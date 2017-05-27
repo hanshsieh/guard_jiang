@@ -1,4 +1,4 @@
-package org.guard_jiang;
+package org.guard_jiang.chat;
 
 import javax.annotation.Nonnull;
 
@@ -6,23 +6,24 @@ import javax.annotation.Nonnull;
  * Created by someone on 4/8/2017.
  */
 public enum ChatStatus {
-    // 0 ~ 1000
-    NONE(0),
+    // Common
+    // 1 ~ 1000
+    LICENSE_CREATE(1),
+    GROUP_MANAGE(2),
+    ROLE_MANAGE(3),
+    ROLES_ADD(4),
+    ROLES_REMOVE(5),
+    LICENSE_SELECT(6),
+    GROUP_SELECT(7),
 
     // Chat with a user
     // 1001 ~ 2000
-    USER_MAIN_MENU(1001),
-    USER_MAIN_MENU_REPLY(1002),
-    USER_SELECT_LICENSE_FOR_ADD(1003),
-    USER_SELECT_GROUP_FOR_LICENSE_ADD(1004);
-
-    // Common for chatting with multi user (room or group)
-    // 2001 ~ 3000
-
-    // Chat in room
-    // 3001 ~ 4000
+    USER_MAIN_MENU(1001);
 
     // Chat in group
+    // 3001 ~ 4000
+
+    // Chat in room
     // 4001 ~ 5000
 
     private final int id;

@@ -1,4 +1,4 @@
-package org.guard_jiang.message;
+package org.guard_jiang.chat;
 
 /**
  * Created by someone on 4/13/2017.

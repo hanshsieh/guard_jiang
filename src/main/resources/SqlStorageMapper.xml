@@ -195,19 +195,19 @@
         </constructor>
     </resultMap>
 
-    <resultMap id="chat" type="org.guard_jiang.Chat">
+    <resultMap id="chat" type="org.guard_jiang.chat.Chat">
         <constructor>
             <idArg column="host_id" javaType="String" />
             <idArg column="guest_id" javaType="String" />
-            <idArg javaType="org.guard_jiang.message.ChatEnv" resultMap="chatEnv"/>
+            <idArg javaType="org.guard_jiang.chat.ChatEnv" resultMap="chatEnv"/>
         </constructor>
         <result property="status" column="status" />
         <result property="metadata" column="metadata" typeHandler="org.guard_jiang.storage.JsonMapTypeHandler"/>
     </resultMap>
 
-    <resultMap id="chatEnv" type="org.guard_jiang.message.ChatEnv">
+    <resultMap id="chatEnv" type="org.guard_jiang.chat.ChatEnv">
         <constructor>
-            <idArg column="env_type" javaType="org.guard_jiang.message.ChatEnvType" />
+            <idArg column="env_type" javaType="org.guard_jiang.chat.ChatEnvType" />
             <idArg column="env_id" javaType="String" />
         </constructor>
     </resultMap>

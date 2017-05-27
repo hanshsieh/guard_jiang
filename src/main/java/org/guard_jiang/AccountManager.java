@@ -4,7 +4,7 @@ import line.thrift.Contact;
 import line.thrift.Group;
 import line.thrift.Message;
 import line.thrift.Operation;
-import org.guard_jiang.message.MessageManager;
+import org.guard_jiang.chat.MessageManager;
 import org.guard_jiang.storage.GroupMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -2,7 +2,7 @@ package org.guard_jiang.storage;
 
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
-import org.guard_jiang.message.ChatEnvType;
+import org.guard_jiang.chat.ChatEnvType;
 
 import java.sql.CallableStatement;
 import java.sql.PreparedStatement;

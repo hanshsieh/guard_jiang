@@ -2,7 +2,7 @@ package org.guard_jiang.storage;
 
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
-import org.guard_jiang.ChatStatus;
+import org.guard_jiang.chat.ChatStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,7 +10,6 @@ import java.sql.CallableStatement;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.Instant;
 
 /**
  * Created by someone on 4/3/2017.

@@ -238,13 +238,20 @@ public class Account {
         }
     }
 
-    public Message sendMessage(@Nonnull Message message) throws IOException {
+    public void sendMessage(@Nonnull Message message) throws IOException {
         try {
             LOGGER.debug("User {} is sending message to {}", mid, message.getToId());
-            return client.getApi().sendMessage(0, message);
+            client.getApi().sendMessage(0, message);
         } catch (Exception ex) {
             throw new IOException("Fail to send message to " + message.getToId());
         }
+    }
+
+    public void sendTextMessage(@Nonnull String text, @Nonnull String toId) throws IOException {
+        Message message = new Message();
+        message.setText(text);
+        message.setToId(toId);
+        sendMessage(message);
     }
 
     public String getAuthToken() {
