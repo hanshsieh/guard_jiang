@@ -1,171 +1,133 @@
 package org.guard_jiang.storage;
 
+import com.typesafe.config.Config;
+import org.apache.commons.lang3.Validate;
+import org.guard_jiang.*;
 import org.guard_jiang.chat.Chat;
-import org.guard_jiang.Credential;
-import org.guard_jiang.BlockingRecord;
-import org.guard_jiang.License;
 import org.guard_jiang.chat.ChatEnv;
-import org.guard_jiang.Role;
-import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
-import org.apache.ibatis.session.SqlSessionFactory;
-import org.apache.ibatis.session.SqlSessionFactoryBuilder;
-import org.guard_jiang.UserRole;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.io.Reader;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.*;
 
-/**
- *
- * CREATE TABLE "user2" (
- *      id VARCHAR PRIMARY KEY NOT NULL,
- *      email VARCHAR NOT NULL,
- *      password VARCHAR NOT NULL,
- *      certificate VARCHAR NOT NULL,
- *      auth_token VARCHAR DEFAULT NULL,
- *      env TINYINT NOT NULL);
- *
- * CREATE TABLE "group" (
- *      id VARCHAR PRIMARY KEY NOT NULL,
- *      recovery_expiry_ts BIGINT DEFAULT NULL,
- *      members_backup_ts BIGINT DEFAULT NULL
- * );
- *
- * CREATE TABLE "role" (
- *      group_id VARCHAR NOT NULL,
- *      user_id VARCHAR NOT NULL, -- It may reference a user not in the "user" table
- *      role UNSIGNED TINYINT NOT NULL, -- 0: defender, 1: supporter, 2: admin
- *      license_key VARCHAR NOT NULL,
- *      FOREIGN KEY(license_key) REFERENCES license(key)
- * );
- *
- * CREATE UNIQUE INDEX role_group_id_user_id_u_idx ON role(group_id, user_id);
- *
- * CREATE TABLE "group_blocking_record" (
- *      group_id VARCHAR NOT NULL,
- *      user_id VARCHAR NOT NULL,
- *      expiry_ts BIGINT DEFAULT NULL);
- *
- * CREATE UNIQUE INDEX group_blocking_record_group_id_user_id_u_idx ON group_blocking_record(user_id, group_id);
- *
- * CREATE TABLE "group_member_backup"(
- *      group_id VARCHAR NOT NULL,
- *      user_id VARCHAR NOT NULL
- * );
- *
- * CREATE UNIQUE INDEX group_member_backup_group_id_user_id_u_idx ON group_member_backup(group_id, user_id);
- *
- * CREATE INDEX group_member_backup_group_id ON group_member_backup(group_id);
- *
- * CREATE TABLE "chat" (
- *      host_id VARCHAR NOT NULL REFERENCES "user"(id),
- *      guest_id VARCHAR NOT NULL,
- *      env_type TINYINT NOT NULL,
- *      env_id VARCHAR NOT NULL,
- *      status INT NOT NULL,
- *      metadata VARCHAR NOT NULL
- * );
- *
- * CREATE UNIQUE INDEX chat_host_guest_id_env_u_idx ON "chat"(host_id, guest_id, env_type, env_id);
- *
- * CREATE INDEX chat_host_id ON "chat"(host_id);
- *
- * CREATE TABLE "license" (
- *      key VARCHAR PRIMARY KEY NOT NULL,
- *      user_id VARCHAR,
- *      create_ts BIGINT NOT NULL,
- *      expiry_ts BIGINT DEFAULT NULL,
- *      max_defenders INTEGER NOT NULL,
- *      num_defenders INTEGER NOT NULL DEFAULT 0 CHECK (num_defenders >= 0 AND num_defenders <= max_defenders),
- *      max_supporters INTEGER NOT NULL,
- *      num_supporters INTEGER NOT NULL DEFAULT 0 CHECK (num_supporters >= 0 AND num_supporters <= max_supporters)
- * );
- *
- * CREATE INDEX license_user_id ON "license"(user_id);
- */
 public class SqlStorage implements Storage {
 
-    private static final String CONFIG_FILE = "mybatis.xml";
+    private final MyBatisSqlSessionFactory sessionFactory;
 
-    private final SqlSessionFactory sessionFactory;
+    private final int partition;
 
-    private final StorageEnv env;
-
-    public SqlStorage(@Nonnull StorageEnv env) throws IOException {
-        this.env = env;
-        try (Reader configReader = Resources.getResourceAsReader(CONFIG_FILE)) {
-            sessionFactory = new SqlSessionFactoryBuilder().build(configReader);
-        }
-    }
-
-    public SqlStorage(@Nonnull StorageEnv env, @Nonnull SqlSessionFactory sqlSessionFactory) {
-        this.env = env;
+    public SqlStorage(
+            @Nonnull Config config,
+            @Nonnull MyBatisSqlSessionFactory sqlSessionFactory) throws IOException {
+        this.partition = config.getInt("partition");
         this.sessionFactory = sqlSessionFactory;
     }
 
     @Nonnull
     @Override
-    public Set<String> getUserIds() throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+    public List<AccountData> getGuardAccounts(boolean withCredential) {
+        try (SqlSession session = sessionFactory.openReadSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            return mapper.getUserIds(env);
-        }
-    }
-
-    @Nullable
-    @Override
-    public Credential getCredential(@Nonnull String mid) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
-            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            return mapper.getCredential(mid);
+            List<AccountData> accountsData = mapper.getGuardAccounts(partition, withCredential);
+            if (!withCredential) {
+                for (AccountData accountData : accountsData) {
+                    accountData.setCredential(null);
+                }
+            }
+            return accountsData;
         }
     }
 
     @Override
-    public void setCredential(@Nonnull String mid, @Nonnull Credential credential) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+    public void updateGuardAccount(@Nonnull AccountData accountData) throws IOException {
+        try (SqlSession session = sessionFactory.openWriteSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            mapper.setCredential(mid, credential);
+            mapper.updateGuardAccount(accountData);
             session.commit();
         }
     }
 
     @Nonnull
     @Override
-    public Map<String, Role> getGroupRoles(@Nonnull String groupId) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+    public List<GroupRole> getRolesOfGroup(
+            @Nonnull String groupId,
+            @Nullable Role role) throws IOException {
+        try (SqlSession session = sessionFactory.openReadSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            List<UserRole> roles = mapper.getGroupRoles(groupId);
-            return roles
-                    .stream()
-                    .collect(Collectors.toMap(UserRole::getUserId, UserRole::getRole));
+            return mapper.getRolesOfGroup(groupId, role);
+        }
+    }
+
+    @Nullable
+    @Override
+    public GroupRole getGroupRoleOfUser(@Nonnull String groupId, @Nonnull String userId) throws IOException {
+        try (SqlSession session = sessionFactory.openReadSession()) {
+            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
+            return mapper.getGroupRoleOfUser(groupId, userId);
         }
     }
 
     @Override
-    public void setGroupRole(
-            @Nonnull String groupId,
-            @Nonnull String userId,
-            @Nonnull Role role) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+    public void addGroupRole(@Nonnull GroupRole groupRole) throws IOException {
+        int defendersAdd = 0;
+        int supportersAdd = 0;
+        Role role = groupRole.getRole();
+        if(Role.DEFENDER.equals(role)) {
+            defendersAdd++;
+        } else if (Role.SUPPORTER.equals(role)) {
+            supportersAdd++;
+        }
+        try (SqlSession session = sessionFactory.openWriteSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            mapper.setGroupRole(groupId, userId, role);
+            if(defendersAdd != 0 || supportersAdd != 0) {
+                License license = mapper.getLicense(groupRole.getLicenseId(), true);
+                if (license == null) {
+                    throw new IOException("No license is found with ID " + groupRole.getLicenseId());
+                }
+                license.setNumDefenders(license.getNumDefenders() + defendersAdd);
+                license.setNumSupporters(license.getNumSupporters() + supportersAdd);
+                updateLicense(mapper, license);
+            }
+            mapper.addGroupRole(groupRole);
             session.commit();
         }
     }
 
+    private void updateLicense(@Nonnull SqlStorageMapper mapper, @Nonnull License license) {
+        if (license.getNumDefenders() > license.getMaxDefenders()) {
+            throw new IllegalArgumentException("Exceeding maximum number of defenders of the license");
+        }
+        if (license.getMaxSupporters() < license.getNumSupporters()) {
+            throw new IllegalArgumentException("Exceeding maximum number of supporters of the license");
+        }
+        if (license.getMaxDefenders() < 0 || license.getNumDefenders() < 0 ||
+            license.getMaxSupporters() < 0 || license.getNumSupporters() < 0) {
+            throw new IllegalArgumentException("Negative number of defenders/supporters isn't allowed");
+        }
+        mapper.updateLicense(license);
+    }
+
     @Override
-    public void removeGroupRole(@Nonnull String groupId, @Nonnull String userId) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+    public void removeGroupRole(long id) throws IOException {
+        try (SqlSession session = sessionFactory.openWriteSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            mapper.removeGroupRole(groupId, userId);
+            GroupRole groupRole = mapper.getGroupRole(id, true);
+            if (groupRole == null) {
+                throw new IllegalArgumentException("Group role with ID " + id + " cannot be found");
+            }
+            Role role = groupRole.getRole();
+            int numDefendersAdd = 0, numSupportersAdd = 0;
+            if (Role.DEFENDER.equals(role)) {
+                numDefendersAdd--;
+            } else if (Role.SUPPORTER.equals(role)) {
+                numSupportersAdd--;
+            }
+            if (numDefendersAdd != 0 || numSupportersAdd != 0) {
+                mapper.updateLicenseUsage(groupRole.getLicenseId(), numDefendersAdd, numSupportersAdd);
+            }
+            mapper.removeGroupRole(id);
             session.commit();
         }
     }
@@ -173,17 +135,26 @@ public class SqlStorage implements Storage {
     @Nonnull
     @Override
     public Collection<BlockingRecord> getGroupBlockingRecords(@Nonnull String groupId) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+        try (SqlSession session = sessionFactory.openReadSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
             return mapper.getGroupBlockingRecords(groupId);
         }
     }
 
     @Override
-    public void setGroupBlockingRecord(@Nonnull String groupId, @Nonnull BlockingRecord blockingRecord) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+    public void setGroupBlockingRecord(@Nonnull BlockingRecord blockingRecord) throws IOException {
+        try (SqlSession session = sessionFactory.openWriteSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            mapper.setGroupBlockingRecord(groupId, blockingRecord);
+            mapper.setGroupBlockingRecord(blockingRecord);
+            session.commit();
+        }
+    }
+
+    @Override
+    public void removeGroupBlockingRecord(@Nonnull String groupId, @Nonnull String userId) throws IOException {
+        try (SqlSession session = sessionFactory.openWriteSession()) {
+            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
+            mapper.removeGroupBlockingRecord(groupId, userId);
             session.commit();
         }
     }
@@ -191,7 +162,7 @@ public class SqlStorage implements Storage {
     @Nonnull
     @Override
     public Set<String> getGroupMembersBackup(@Nonnull String groupId) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+        try (SqlSession session = sessionFactory.openReadSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
             return mapper.getGroupMembersBackup(groupId);
         }
@@ -199,7 +170,7 @@ public class SqlStorage implements Storage {
 
     @Override
     public void setGroupMembersBackup(@Nonnull String groupId, @Nonnull Set<String> members) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+        try (SqlSession session = sessionFactory.openWriteSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
 
             // Clear the old members
@@ -215,17 +186,17 @@ public class SqlStorage implements Storage {
 
     @Override
     public GroupMetadata getGroupMetadata(@Nonnull String groupId) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+        try (SqlSession session = sessionFactory.openReadSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
             return mapper.getGroupMetadata(groupId);
         }
     }
 
     @Override
-    public void setGroupMetadata(@Nonnull String groupId, @Nonnull GroupMetadata meta) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+    public void setGroupMetadata(@Nonnull GroupMetadata meta) throws IOException {
+        try (SqlSession session = sessionFactory.openWriteSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            mapper.setGroupMetadata(groupId, meta);
+            mapper.setGroupMetadata(meta);
             session.commit();
         }
     }
@@ -235,7 +206,7 @@ public class SqlStorage implements Storage {
             @Nonnull String hostId,
             @Nonnull String guestId,
             @Nonnull ChatEnv env) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+        try (SqlSession session = sessionFactory.openReadSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
             return mapper.getChat(hostId, guestId, env);
         }
@@ -243,7 +214,7 @@ public class SqlStorage implements Storage {
 
     @Override
     public void setChat(@Nonnull Chat chat) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+        try (SqlSession session = sessionFactory.openWriteSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
             mapper.setChat(chat);
             session.commit();
@@ -253,36 +224,38 @@ public class SqlStorage implements Storage {
     @Nonnull
     @Override
     public List<License> getLicensesOfUser(@Nonnull String userId) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+        try (SqlSession session = sessionFactory.openReadSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
             return mapper.getLicensesOfUser(userId);
         }
     }
 
+    @Nonnull
+    @Override
+    public License getLicense(long licenseId) throws IOException {
+        try (SqlSession session = sessionFactory.openReadSession()) {
+            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
+            License license = mapper.getLicense(licenseId, false);
+            if (license == null) {
+                throw new IllegalArgumentException("No license with the given ID could be found. id: " + licenseId);
+            }
+            return license;
+        }
+    }
+
     @Override
     public void createLicense(@Nonnull License license) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
+        Validate.isTrue(
+                license.getNumDefenders() == 0,
+                "License must have 0 defenders initially");
+        Validate.isTrue(
+                license.getNumSupporters() == 0,
+                "License must have 0 supporter initially");
+        try (SqlSession session = sessionFactory.openWriteSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
             mapper.createLicense(license);
             session.commit();
         }
     }
 
-    @Override
-    public void bindLicenseToUser(@Nonnull String licenseKey, @Nonnull String userId) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
-            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            mapper.bindLicenseToUser(licenseKey, userId);
-            session.commit();
-        }
-    }
-
-    @Override
-    public void updateLicenseUsage(@Nonnull String key, int defendersAdd, int supportersAdd) throws IOException {
-        try (SqlSession session = sessionFactory.openSession()) {
-            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            mapper.updateLicenseUsage(key, defendersAdd, supportersAdd);
-            session.commit();
-        }
-    }
 }

@@ -6,8 +6,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -18,9 +21,9 @@ public class GuardGroup {
     private static final Logger LOGGER = LoggerFactory.getLogger(GuardGroup.class);
     private final Storage storage;
     private final String id;
-    public GuardGroup(@Nonnull Storage storage, @Nonnull String id) {
+    public GuardGroup(@Nonnull Storage storage, @Nonnull String groupId) {
         this.storage = storage;
-        this.id = id;
+        this.id = groupId;
     }
 
     @Nonnull
@@ -29,13 +32,25 @@ public class GuardGroup {
     }
 
     @Nonnull
-    public Map<String, Role> getRoles() throws IOException {
-        return storage.getGroupRoles(id);
+    public List<GroupRole> getRoles() throws IOException {
+        return getRoles(null);
     }
 
-    public void addAdmin(@Nonnull String admin) throws IOException {
-        LOGGER.debug("Adding {} as admin of group {}", admin, id);
-        storage.setGroupRole(id, admin, Role.ADMIN);
+    @Nonnull
+    public List<GroupRole> getRoles(@Nullable Role role) throws IOException {
+        return storage.getRolesOfGroup(id, role);
+    }
+
+    @Nullable
+    public GroupRole getRoleOfUser(@Nonnull String userId) throws IOException {
+        return storage.getGroupRoleOfUser(id, userId);
+    }
+
+    public void addRole(@Nonnull String userId, @Nonnull Role role, long licenseId)
+        throws IOException {
+        GroupRole groupRole = new GroupRole(id, userId, role, licenseId);
+        LOGGER.debug("Adding {} as {} in group {}", groupRole.getUserId(), groupRole.getRole(), id);
+        storage.addGroupRole(groupRole);
     }
 
     @Nonnull
@@ -43,9 +58,10 @@ public class GuardGroup {
         return storage.getGroupBlockingRecords(id);
     }
 
-    public void putBlockingRecord(@Nonnull BlockingRecord blockingRecord) throws IOException {
-        LOGGER.debug("Adding user {} to black list of group {}", blockingRecord.getUserId(), id);
-        storage.setGroupBlockingRecord(id, blockingRecord);
+    public void blockUser(@Nonnull String userId, @Nullable Instant expiryTs) throws IOException {
+        LOGGER.debug("Adding user {} to black list of group {}", userId, id);
+        BlockingRecord record = new BlockingRecord(id, userId, expiryTs);
+        storage.setGroupBlockingRecord(record);
     }
 
     @Nonnull
@@ -61,13 +77,16 @@ public class GuardGroup {
     public GroupMetadata getMetadata() throws IOException {
         GroupMetadata metadata = storage.getGroupMetadata(id);
         if (metadata == null) {
-            return new GroupMetadata();
+            return new GroupMetadata(id);
         }
         return metadata;
     }
 
     public void setMetadata(@Nonnull GroupMetadata metadata) throws IOException {
+        if (!id.equals(metadata.getGroupId())) {
+            throw new IllegalArgumentException("Group ID mismatch");
+        }
         LOGGER.debug("Setting metadata group {}", id);
-        storage.setGroupMetadata(id, metadata);
+        storage.setGroupMetadata(metadata);
     }
 }

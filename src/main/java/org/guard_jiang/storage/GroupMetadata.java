@@ -1,5 +1,6 @@
 package org.guard_jiang.storage;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.time.Instant;
 
@@ -7,8 +8,18 @@ import java.time.Instant;
  * Created by someone on 4/3/2017.
  */
 public class GroupMetadata {
+    private String groupId;
     private Instant recoveryExpiryTime;
     private Instant membersBackupTime;
+
+    public GroupMetadata(@Nonnull String groupId) {
+        this.groupId = groupId;
+    }
+
+    @Nonnull
+    public String getGroupId() {
+        return groupId;
+    }
 
     @Nullable
     public Instant getRecoveryExpiryTime() {

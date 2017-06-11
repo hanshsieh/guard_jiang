@@ -11,14 +11,15 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.NotThreadSafe;
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Map;
 
 /**
- * Created by someone on 4/9/2017.
+ * A manager for a chat between guard account and another LINE account.
+ * This class is stateful, and isn't thread-safe.
  */
+@NotThreadSafe
 public class ChatManager {
     private static final int MAX_ROUND_PER_MESSAGE = 10;
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatManager.class);
@@ -27,31 +28,30 @@ public class ChatManager {
     protected final Guard guard;
     private final ObjectMapper objectMapper;
     private final ChatEnv chatEnv;
-    private final String guestId;
-    private Deque<ChatFrame> stack;
+    private final String userId;
+    private Chat chat;
 
     public ChatManager(
             @Nonnull Guard guard,
             @Nonnull Account account,
-            @Nonnull String guestId,
-            @Nonnull ChatEnv chatEnv,
+            @Nonnull ChatEnv chatEnv, @Nonnull String userId,
             @Nonnull ObjectMapper objectMapper) {
         this.guard = guard;
         this.account = account;
-        this.guestId = guestId;
+        this.userId = userId;
         this.chatEnv = chatEnv;
         this.objectMapper = objectMapper;
     }
 
     public void startChat() throws IOException {
-        Chat chat = getChat();
-        stack = new ArrayDeque<>(chat.getStack());
+        if (chat != null) {
+            return;
+        }
+        chat = getChat();
     }
 
     public void onReceiveTextMessage(@Nonnull String text) throws IOException {
-        if (stack == null) {
-            startChat();
-        }
+        startChat();
         try {
             ChatPhase chatPhase = getChatPhase(true);
             if (chatPhase == null) {
@@ -71,7 +71,7 @@ public class ChatManager {
                     chatPhase = handleLeavingPhase(chatPhase);
                 } else {
                     ObjectNode data = chatPhase.getData();
-                    stack.getLast().setData(data);
+                    chat.getStack().getLast().setData(data);
                     if (chatPhase.isCalling()) {
                         phaseChanged = true;
                         chatPhase = handleCallingPhase(chatPhase);
@@ -80,21 +80,23 @@ public class ChatManager {
             } while (chatPhase != null && phaseChanged);
         } catch (Exception ex) {
             LOGGER.error("Error occurs when handling message", ex);
-            account.sendTextMessage("糟糕，發生錯誤了...請等會再來找我喔", guestId);
-            stack.clear();
+            account.sendTextMessage("糟糕，發生錯誤了...請等會再來找我喔", userId);
+            chat.getStack().clear();
         }
         saveChat();
     }
 
     private void saveChat() throws IOException {
-        Chat chat = new Chat(account.getMid(), guestId, chatEnv, stack);
+        if (chat == null) {
+            throw new IllegalStateException("No chat has been started");
+        }
         guard.setChat(chat);
     }
 
     @Nullable
     private ChatPhase handleLeavingPhase(@Nonnull ChatPhase chatPhase) throws IOException {
         ObjectNode returnData = chatPhase.getReturnData();
-        ChatFrame popedFrame = stack.removeLast();
+        ChatFrame popedFrame = chat.getStack().removeLast();
         chatPhase = getChatPhase(false);
         if (chatPhase != null) {
             if (returnData == null) {
@@ -111,7 +113,7 @@ public class ChatManager {
         ObjectNode newStatusData = chatPhase.getNewPhaseData();
         assert newStatus != null;
         assert newStatusData != null;
-        stack.addLast(new ChatFrame(newStatus, newStatusData));
+        chat.getStack().addLast(new ChatFrame(newStatus, newStatusData));
         chatPhase = getChatPhase(false);
         if (chatPhase != null) {
             chatPhase.onEnter();
@@ -122,16 +124,17 @@ public class ChatManager {
     @Nonnull
     private Chat getChat() throws IOException{
         String myId = account.getMid();
-        return guard.getChat(myId, guestId, chatEnv);
+        return guard.getChat(myId, userId, chatEnv);
     }
 
 
     @Nullable
     private ChatPhase getChatPhase(boolean createIfNotExist) throws IOException {
-        if (stack == null) {
+        if (chat == null) {
             throw new IllegalStateException("Not yet initialized");
         }
         ChatPhase chatPhase;
+        Deque<ChatFrame> stack = chat.getStack();
         if (stack.isEmpty()) {
             if (!createIfNotExist) {
                 return null;
@@ -158,28 +161,28 @@ public class ChatManager {
         switch (chatStatus) {
             case USER_MAIN_MENU:
                 return new MainMenuChatPhase(
-                        guard, account, guestId, chatFrame.getData());
+                        guard, account, userId, chatFrame.getData());
             case LICENSE_CREATE:
                 return new LicenseCreationChatPhase(
-                        guard, account, guestId, chatFrame.getData());
+                        guard, account, userId, chatFrame.getData());
             case GROUP_MANAGE:
                 return new GroupManageChatPhase(
-                        guard, account, guestId, chatFrame.getData()
+                        guard, account, userId, chatFrame.getData()
                 );
             case ROLE_MANAGE:
                 return new RoleManageChatPhase(
-                        guard, account, guestId, chatFrame.getData()
+                        guard, account, userId, chatFrame.getData()
                 );
             case ROLES_ADD:
                 return new RolesAddChatPhase(
-                        guard, account, guestId, chatFrame.getData()
+                        guard, account, userId, chatFrame.getData()
                 );
             case LICENSE_SELECT:
                 return new LicenseSelectChatPhase(
-                        guard, account, guestId, chatFrame.getData());
+                        guard, account, userId, chatFrame.getData());
             case GROUP_SELECT:
                 return new GroupSelectChatPhase(
-                        guard, account, guestId, chatFrame.getData());
+                        guard, account, userId, chatFrame.getData());
             default:
                 throw new IllegalArgumentException(
                         "Unsupported chat status " + chatStatus);

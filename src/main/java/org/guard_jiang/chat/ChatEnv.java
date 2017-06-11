@@ -9,16 +9,24 @@ import javax.annotation.Nullable;
 public class ChatEnv {
     private final ChatEnvType type;
     private final String id;
-    public ChatEnv(@Nonnull ChatEnvType type, @Nullable String id) {
+    public ChatEnv(@Nonnull ChatEnvType type, @Nonnull String id) {
         this.type = type;
         this.id = id;
     }
 
+    @Nonnull
     public ChatEnvType getType() {
         return type;
     }
 
+    @Nonnull
     public String getId() {
         return id;
+    }
+
+    @Override
+    public String toString() {
+        return "type: " + type
+                + ", id: " + id;
     }
 }

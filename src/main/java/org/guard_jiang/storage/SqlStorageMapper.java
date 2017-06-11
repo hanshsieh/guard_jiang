@@ -1,13 +1,9 @@
 package org.guard_jiang.storage;
 
 import org.apache.ibatis.annotations.Param;
-import org.guard_jiang.BlockingRecord;
+import org.guard_jiang.*;
 import org.guard_jiang.chat.Chat;
-import org.guard_jiang.Credential;
-import org.guard_jiang.License;
 import org.guard_jiang.chat.ChatEnv;
-import org.guard_jiang.Role;
-import org.guard_jiang.UserRole;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -21,30 +17,35 @@ import java.util.Set;
 public interface SqlStorageMapper {
 
     @Nonnull
-    Set<String> getUserIds(@Nonnull StorageEnv env);
+    List<AccountData> getGuardAccounts(
+            @Param("partition") int partition,
+            @Param("withCredential") boolean withCredential);
+
+    void updateGuardAccount(
+            @Param("account") @Nonnull AccountData accountData);
+
+    void addGroupRole(
+            @Param("groupRole") @Nonnull GroupRole groupRole);
+
+    @Nonnull
+    List<GroupRole> getRolesOfGroup(
+            @Param("groupId") @Nonnull String groupId,
+            @Param("role") @Nullable Role role);
 
     @Nullable
-    Credential getCredential(@Param("userId") @Nonnull String id);
+    GroupRole getGroupRoleOfUser(
+            @Param("groupId") @Nonnull String groupId, @Param("userId") @Nonnull String userId);
 
-    void setCredential(
-            @Param("userId") @Nonnull String id,
-            @Param("credential") @Nonnull Credential credential);
-
-    void setGroupRole(
-            @Param("groupId") @Nonnull String groupId,
-            @Param("userId") @Nonnull String userId,
-            @Param("role") @Nonnull Role role);
-
-    List<UserRole> getGroupRoles(@Param("groupId") @Nonnull String groupId);
+    @Nullable
+    GroupRole getGroupRole(
+            @Param("id") long groupRoleId,
+            @Param("forUpdate") boolean forUpdate);
 
     void removeGroupRole(
-            @Param("groupId") @Nonnull String groupId,
-            @Param("userId") @Nonnull String userId);
+            @Param("id") long id);
 
     void setGroupMetadata(
-            @Param("groupId") @Nonnull String groupId,
-            @Param("metadata") @Nonnull GroupMetadata metadata
-            );
+            @Param("metadata") @Nonnull GroupMetadata metadata);
 
     @Nullable
     GroupMetadata getGroupMetadata(@Param("groupId") @Nonnull String groupId);
@@ -54,8 +55,12 @@ public interface SqlStorageMapper {
             @Param("groupId") @Nonnull String groupId);
 
     void setGroupBlockingRecord(
-            @Param("groupId") @Nonnull String groupId,
             @Param("record") @Nonnull BlockingRecord record);
+
+    void removeGroupBlockingRecord(
+            @Param("groupId") @Nonnull String groupId,
+            @Param("userId") @Nonnull String userId
+    );
 
     @Nonnull
     Set<String> getGroupMembersBackup(
@@ -75,8 +80,8 @@ public interface SqlStorageMapper {
 
     @Nonnull
     Chat getChat(
-            @Param("hostId") @Nonnull String hostId,
-            @Param("guestId") @Nonnull String guestId,
+            @Param("guardId") @Nonnull String guardId,
+            @Param("userId") @Nonnull String userId,
             @Param("chatEnv") @Nonnull ChatEnv chatEnv
     );
 
@@ -88,17 +93,22 @@ public interface SqlStorageMapper {
     List<License> getLicensesOfUser(
             @Param("userId") @Nonnull String userId);
 
+    @Nullable
+    License getLicense(
+            @Param("licenseId") long licenseId,
+            @Param("forUpdate") boolean forUpdate);
+
     void createLicense(
             @Param("license") @Nonnull License license
     );
 
-    void bindLicenseToUser(
-            @Param("key") @Nonnull String licenseKey,
-            @Param("userId") @Nonnull String userId);
+    void updateLicense(
+            @Param("license") @Nonnull License license
+    );
 
     void updateLicenseUsage(
-            @Param("key") @Nonnull String key,
-            @Param("defendersAdd") int defendersAdd,
-            @Param("supportersAdd") int supportersAdd
+            @Param("licenseId") long licenseId,
+            @Param("numDefendersAdd") int numDefendersAdd,
+            @Param("numSupportersAdd") int numSupportersAdd
     );
 }

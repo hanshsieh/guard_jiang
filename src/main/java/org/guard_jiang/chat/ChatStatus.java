@@ -15,6 +15,7 @@ public enum ChatStatus {
     ROLES_REMOVE(5),
     LICENSE_SELECT(6),
     GROUP_SELECT(7),
+    ACCOUNTS_SELECT(8),
 
     // Chat with a user
     // 1001 ~ 2000

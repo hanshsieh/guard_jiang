@@ -8,7 +8,7 @@ import javax.annotation.Nonnull;
 /**
  * Created by someone on 4/22/2017.
  */
-class ChatFrame {
+public class ChatFrame {
     private final ChatStatus chatStatus;
     private ObjectNode data;
 
@@ -29,5 +29,10 @@ class ChatFrame {
 
     public void setData(@Nonnull ObjectNode data) {
         this.data = data;
+    }
+
+    @Override
+    public String toString() {
+        return "status: " + chatStatus + ", data: " + data;
     }
 }

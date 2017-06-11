@@ -101,7 +101,7 @@ public class RoleManageChatPhase extends ChatPhase {
     private void onAddRoles() throws IOException {
         Role role = getRole();
         ObjectNode arg = getData().objectNode();
-        arg.put(RolesAddChatPhase.KEY_ROLE, role.ordinal());
+        arg.put(RolesAddChatPhase.ARG_ROLE, role.ordinal());
         startPhase(ChatStatus.ROLES_ADD, arg);
     }
 

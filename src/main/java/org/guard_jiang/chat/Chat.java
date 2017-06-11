@@ -1,39 +1,57 @@
 package org.guard_jiang.chat;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.time.Instant;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Deque;
-import java.util.List;
-import java.util.Map;
-import java.util.Stack;
 
 /**
  * Created by someone on 4/8/2017.
  */
 public class Chat {
-    private final String hostId;
-    private final String guestId;
+    private long id;
+    private final String guardId;
+    private final String userId;
     private final ChatEnv chatEnv;
     private final Deque<ChatFrame> stack;
+    private Instant updateTime;
 
     public Chat(
-            @Nonnull String hostId,
-            @Nonnull String guestId,
+            long id,
+            @Nonnull String guardId,
+            @Nonnull String userId,
             @Nonnull ChatEnv chatEnv,
-            @Nonnull Deque<ChatFrame> stack) {
-        this.hostId = hostId;
-        this.guestId = guestId;
+            @Nonnull Deque<ChatFrame> stack,
+            @Nonnull Instant updateTime) {
+        this.id = id;
+        this.guardId = guardId;
+        this.userId = userId;
         this.chatEnv = chatEnv;
         this.stack = new ArrayDeque<>(stack);
+        this.updateTime = updateTime;
     }
 
     public Chat(
-            @Nonnull String hostId,
-            @Nonnull String guestId,
+            @Nonnull String guardId,
+            @Nonnull String userId,
             @Nonnull ChatEnv chatEnv) {
-        this(hostId, guestId, chatEnv, new ArrayDeque<>());
+        this(
+                -1,
+                guardId,
+                userId,
+                chatEnv,
+                new ArrayDeque<>(),
+                Instant.now()
+        );
+    }
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
     }
 
     @Nonnull
@@ -42,8 +60,8 @@ public class Chat {
     }
 
     @Nonnull
-    public String getHostId() {
-        return hostId;
+    public String getGuardId() {
+        return guardId;
     }
 
     @Nonnull
@@ -52,7 +70,26 @@ public class Chat {
     }
 
     @Nonnull
-    public String getGuestId() {
-        return guestId;
+    public String getUserId() {
+        return userId;
+    }
+
+    @Nonnull
+    public Instant getUpdateTime() {
+        return updateTime;
+    }
+
+    public void setUpdateTime(@Nonnull Instant updateTime) {
+        this.updateTime = updateTime;
+    }
+
+    @Override
+    public String toString() {
+        return "id: " + id
+                + ", guardId: " + guardId
+                + ", userId: " + userId
+                + ", chatEnv: [" + chatEnv + "]"
+                + ", updateTs: " + updateTime
+                + ", stack: " + stack;
     }
 }

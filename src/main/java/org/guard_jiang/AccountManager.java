@@ -14,14 +14,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -124,16 +117,31 @@ class AccountManager {
         return contactsToAdd;
     }
 
+    @Nullable
+    private Role getRoleFromAll(@Nonnull Collection<GroupRole> groupRoles, @Nonnull String userId) {
+        for (GroupRole groupRole : groupRoles) {
+            if(userId.equals(groupRole.getUserId())) {
+                return groupRole.getRole();
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    private Role getMyRoleFromAll(@Nonnull Collection<GroupRole> groupRoles) {
+        String myId = account.getMid();
+        return getRoleFromAll(groupRoles, myId);
+    }
+
     @Nonnull
     private Set<String> checkJoinedGroup(@Nonnull String groupId) throws IOException {
         Set<String> contactsToAdd = new HashSet<>();
 
         long now = System.currentTimeMillis();
-        String myId = account.getMid();
         GuardGroup guardGroup = guard.getGroup(groupId);
 
-        Map<String, Role> roles = guardGroup.getRoles();
-        Role myRole = roles.get(myId);
+        List<GroupRole> roles = guardGroup.getRoles();
+        Role myRole = getMyRoleFromAll(roles);
 
         boolean shouldLeave = false;
 
@@ -146,7 +154,7 @@ class AccountManager {
 
             backupGroupMembers(guardGroup, memberIds, blockIds);
             contactsToAdd.addAll(memberIds);
-            contactsToAdd.addAll(roles.keySet());
+            contactsToAdd.addAll(roles.stream().map(GroupRole::getUserId).collect(Collectors.toList()));
         }
 
         if (!Role.DEFENDER.equals(myRole)) {
@@ -159,8 +167,6 @@ class AccountManager {
 
         if (shouldLeave) {
             account.leaveGroup(groupId);
-        } else {
-            updateGroupAdmin(groupId);
         }
         return contactsToAdd;
     }
@@ -304,6 +310,14 @@ class AccountManager {
         account.acceptGroupInvitation(groupId);
     }
 
+    @Nullable
+    private static Role getRoleFromGroupRole(@Nullable GroupRole groupRole) {
+        if (groupRole != null) {
+            return groupRole.getRole();
+        }
+        return null;
+    }
+
     /**
      * Someone has invited another user into a group.
      *
@@ -336,7 +350,7 @@ class AccountManager {
 
         account.cancelGroupInvitation(groupId, blockedInvitees);
 
-        Role inviterRole = group.getRoles().get(inviterId);
+        Role inviterRole = getRoleFromGroupRole(group.getRoleOfUser(inviterId));
 
         // If the inviter is our own fellow
         if (Role.DEFENDER.equals(inviterRole) || Role.SUPPORTER.equals(inviterRole)) {
@@ -348,10 +362,8 @@ class AccountManager {
             return;
         }
         account.kickOutFromGroup(groupId, inviterId);
-        group.putBlockingRecord(
-                new BlockingRecord(
-                        inviterId,
-                        Instant.ofEpochMilli(System.currentTimeMillis() + DEFAULT_BLOCKING_MS)));
+        group.blockUser(inviterId,
+                        Instant.ofEpochMilli(System.currentTimeMillis() + DEFAULT_BLOCKING_MS));
     }
 
     /**
@@ -370,8 +382,8 @@ class AccountManager {
 
         GuardGroup group = guard.getGroup(groupId);
 
-        Role myRole = group.getRoles().get(myId);
-        if (myRole == null) {
+        GroupRole myGroupRole = group.getRoleOfUser(myId);
+        if (myGroupRole == null) {
             return;
         }
 
@@ -410,34 +422,6 @@ class AccountManager {
         return Role.DEFENDER.equals(role) || Role.SUPPORTER.equals(role);
     }
 
-    private void updateGroupAdmin(@Nonnull String groupId) throws IOException {
-        Group group = account.getGroup(groupId);
-        if (group == null) {
-            return;
-        }
-        Contact creator = group.getCreator();
-
-        // If the creator of the group leaves the group before, then the creator
-        // may be null.
-        if (creator == null) {
-            return;
-        }
-        GuardGroup guardGroup = guard.getGroup(groupId);
-        Set<String> oldGroupAdmins = getGroupAdmins(guardGroup.getRoles());
-        if (oldGroupAdmins.isEmpty()) {
-            guardGroup.addAdmin(creator.getMid());
-        }
-    }
-
-    private Set<String> getGroupAdmins(Map<String, Role> roles) {
-        return roles
-                .entrySet()
-                .stream()
-                .filter((entry) -> Role.ADMIN.equals(entry.getValue()))
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toSet());
-    }
-
     /**
      * The user has accepted a group invitation.
      *
@@ -454,7 +438,7 @@ class AccountManager {
         GuardGroup group = guard.getGroup(groupId);
 
         // Get my role in the group
-        Role myRole = group.getRoles().get(myId);
+        Role myRole = getRoleFromGroupRole(group.getRoleOfUser(myId));
 
         if (!isGuardRole(myRole)) {
 
@@ -467,7 +451,6 @@ class AccountManager {
         kickoutBlockedMembers(group, groupMembers, blockedMembers);
         inviteDefenders(group, getGroupMemberIds(groupId));
         recoverGroupMembers(group, groupMembers, blockedMembers);
-        updateGroupAdmin(groupId);
     }
 
     private Set<String> getGroupMemberIds(@Nonnull String groupId) throws IOException {
@@ -487,13 +470,11 @@ class AccountManager {
         String groupId = group.getId();
 
         // Get other defenders of the group
-        Set<String> otherDefenderIds = group.getRoles()
-                .entrySet()
+        Set<String> otherDefenderIds = group.getRoles(Role.DEFENDER)
                 .stream()
-                .filter(entry ->
-                        !memberIds.contains(entry.getKey()) &&
-                                Role.DEFENDER.equals(entry.getValue()))
-                .map(Map.Entry::getKey)
+                .filter(groupRole ->
+                        !memberIds.contains(groupRole.getUserId()))
+                .map(GroupRole::getUserId)
                 .collect(Collectors.toSet());
 
         // Invite other defenders
@@ -537,9 +518,9 @@ class AccountManager {
 
         String myId = getId();
 
-        Map<String, Role> roles = group.getRoles();
+        List<GroupRole> groupRoles = group.getRoles();
 
-        Role myRole = roles.get(myId);
+        Role myRole = getMyRoleFromAll(groupRoles);
 
         // If I'm not a defender or supporter
         if (!isGuardRole(myRole)) {
@@ -549,13 +530,13 @@ class AccountManager {
         }
 
         // If the remover is our own guy
-        Role removerRole = roles.get(removerId);
+        Role removerRole = getRoleFromAll(groupRoles, removerId);
         if (isGuardRole(removerRole)) {
             return;
         }
 
         // If remover is admin of the group
-        if (getGroupAdmins(roles).contains(removerId)) {
+        if (Role.ADMIN.equals(removerRole)) {
 
             LOGGER.info("Admin {} of group {} has kicked out {}", removerId, groupId, removedIds);
 
@@ -565,9 +546,9 @@ class AccountManager {
 
         // Add the remover to black list first because I may have been kicked out
         // and the following operations may fail
-        group.putBlockingRecord(new BlockingRecord(
+        group.blockUser(
                 removerId,
-                Instant.ofEpochMilli(System.currentTimeMillis() + DEFAULT_BLOCKING_MS)));
+                Instant.ofEpochMilli(System.currentTimeMillis() + DEFAULT_BLOCKING_MS));
 
         GroupMetadata metadata = group.getMetadata();
         metadata.setRecoveryExpiryTime(Instant.now().plus(RECOVERY_MS, ChronoUnit.MILLIS));
@@ -577,10 +558,10 @@ class AccountManager {
         account.kickOutFromGroup(groupId, removerId);
 
         // Invite supporters and the removed user
-        Set<String> supporters = roles.entrySet()
+        Set<String> supporters = groupRoles
                 .stream()
-                .filter(entry -> Role.SUPPORTER.equals(entry.getValue()))
-                .map(Map.Entry::getKey)
+                .filter(groupRole -> Role.SUPPORTER.equals(groupRole.getRole()))
+                .map(GroupRole::getUserId)
                 .collect(Collectors.toSet());
         Set<String> invitees = new HashSet<>(supporters);
 

@@ -9,21 +9,42 @@
             https://github.com/mybatis/mybatis-3/pull/800
         -->
         <setting name="returnInstanceForEmptyRow" value="true" />
+
+        <!-- Sets the number of seconds the driver will wait for a response from the database. -->
+        <setting name="defaultStatementTimeout" value="3" />
     </settings>
     <typeHandlers>
-        <typeHandler handler="org.apache.ibatis.type.EnumOrdinalTypeHandler" javaType="org.guard_jiang.Role"/>
+        <typeHandler handler="org.guard_jiang.storage.RoleTypeHandler" javaType="org.guard_jiang.Role"/>
         <typeHandler handler="org.guard_jiang.storage.InstantTypeHandler" javaType="java.time.Instant"/>
         <typeHandler handler="org.guard_jiang.storage.ChatStatusTypeHandler" javaType="org.guard_jiang.chat.ChatStatus"/>
-        <typeHandler handler="org.guard_jiang.storage.StorageEnvTypeHandler" javaType="org.guard_jiang.storage.StorageEnv"/>
         <typeHandler handler="org.guard_jiang.storage.MemberTypeTypeHandler" javaType="org.guard_jiang.chat.ChatEnvType"/>
     </typeHandlers>
     <environments default="development">
         <environment id="development">
             <transactionManager type="JDBC"/>
-            <dataSource type="org.guard_jiang.storage.SQLiteDataSourceFactory">
-            <!--<dataSource type="POOLED">-->
-                <property name="driver" value="org.sqlite.JDBC"/>
-                <property name="url" value="jdbc:sqlite:guard_jiang.sqlite"/>
+            <dataSource type="org.guard_jiang.storage.HikariDataSourceFactory">
+                <!-- we use host, port, path to construct our url. -->
+                <property name="jdbcUrl" value="${url}"/>
+                <!-- login username -->
+                <property name="username" value="${username}"/>
+                <!-- login password, password is from ykeykey -->
+                <property name="password" value="${password}"/>
+                <!-- max life time of a connection, default 1800000 (10 min), set 0 means no max life time -->
+                <property name="maxLifetime" value="${maxLifetime}"/>
+                <!-- max idle time of a connection -->
+                <property name="idleTimeout" value="${idleTimeout}"/>
+                <!-- min idle pool size -->
+                <property name="minimumIdle" value="${minimumIdle}"/>
+                <!-- max pool size -->
+                <property name="maximumPoolSize" value="${maximumPoolSize}"/>
+                <!-- if database is read only -->
+                <property name="readOnly" value="${readOnly}"/>
+                <!-- the max number of milliseconds that a client will wait for a connection from the pool -->
+                <property name="connectionTimeout" value="${connectionTimeout}" />
+                <!-- the max amount of time that connection will be tested for aliveness  -->
+                <!-- <property name="validationTimeout" value="${validationTimeout}" /> -->
+                <!-- auto commit, default true, should be set to false if we want transaction -->
+                <!--<property name="autoCommit" value="false"/>-->
             </dataSource>
         </environment>
     </environments>

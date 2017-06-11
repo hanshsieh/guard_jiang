@@ -1,8 +1,7 @@
 .idea/*
 *.iml
 target/*
-src/test/resources/*.conf
-src/main/resources/*.conf
 *.log
 *.log.zip
 *.sqlite
+src/main/resources/secret.properties

@@ -3,165 +3,251 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.guard_jiang.storage.SqlStorageMapper">
-    <select id="getUserIds" resultType="String">
-        select id from user where env = #{env}
+    <select id="getGuardAccounts" resultMap="accountData">
+        SELECT
+            `id`,
+            `partition`
+        <if test="withCredential">
+            , `email`,
+            `password`,
+            `certificate`,
+            `auth_token`
+        </if>
+        FROM `guard_account`
+        WHERE
+            `partition` = #{partition}
     </select>
-    <select id="getCredential" resultType="org.guard_jiang.Credential" timeout="3">
-        select
-            email,
-            password,
-            certificate,
-            auth_token as authToken
-        from "user" where id = #{userId}
-    </select>
-    <insert id="setCredential" timeout="3">
-        update "user" set
-            email = #{credential.email},
-            password = #{credential.password},
-            certificate = #{credential.certificate, jdbcType=VARCHAR},
-            auth_token = #{credential.authToken, jdbcType=VARCHAR}
-        where
-            id = #{userId}
-    </insert>
-    <insert id="setGroupRole" timeout="3">
-        insert or replace into "role" (
-            group_id,
-            user_id,
-            role)
-        values (
-            #{groupId},
-            #{userId},
-            #{role}
+
+    <insert id="createGuardAccount">
+        INSERT INTO `guard_account` (
+            `id`,
+            `partition`,
+            `email`,
+            `password`,
+            `certificate`,
+            `auth_token`)
+        VALUES(
+            #{account.mid},
+            #{account.partition},
+            #{account.credential.email, jdbcType=VARCHAR},
+            #{account.credential.password, jdbcType=VARCHAR},
+            #{account.credential.certificate, jdbcType=VARCHAR},
+            #{account.credential.authToken, jdbcType=VARCHAR}
         )
     </insert>
-    <delete id="removeGroupRole" timeout="3">
-        delete from "role" where
-            group_id = #{groupId} and
-            user_id = #{userId}
+
+    <update id="updateGuardAccount">
+        UPDATE `guard_account` SET
+            `partition` = #{account.partition},
+            `email` = #{account.credential.email, jdbcType=VARCHAR},
+            `password` = #{account.credential.password, jdbcType=VARCHAR},
+            `certificate` = #{account.credential.certificate, jdbcType=VARCHAR},
+            `auth_token` = #{account.credential.authToken, jdbcType=VARCHAR}
+        WHERE
+            `id` = #{account.mid}
+    </update>
+    <insert id="addGroupRole" useGeneratedKeys="true" keyProperty="groupRole.id">
+        INSERT INTO `group_role` (
+            `group_id`,
+            `user_id`,
+            `role`,
+            `license_id`)
+        VALUES (
+            #{groupRole.groupId},
+            #{groupRole.userId},
+            #{groupRole.role},
+            #{groupRole.licenseId}
+        )
+    </insert>
+    <delete id="removeGroupRole">
+        DELETE FROM `group_role` WHERE
+            `id` = #{id}
     </delete>
+    <select id="getRolesOfGroup" resultMap="groupRole">
+        SELECT
+            `id`,
+            `group_id`,
+            `user_id`,
+            `role`,
+            `license_id`
+        FROM `group_role`
+        WHERE `group_id` = #{groupId}
+        <if test="role != null">
+            AND `role` = #{role}
+        </if>
+    </select>
+    <select id="getGroupRoleOfUser" resultMap="groupRole">
+        SELECT
+            `id`,
+            `group_id`,
+            `user_id`,
+            `role`,
+            `license_id`
+        FROM `group_role`
+        WHERE
+            `group_id` = #{groupId} AND
+            `user_id` = #{userId}
+    </select>
+
+    <select id="getGroupRole" resultMap="groupRole">
+        SELECT
+            `id`,
+            `group_id`,
+            `user_id`,
+            `role`,
+            `license_id`
+        FROM `group_role`
+        WHERE
+            `id` = #{id}
+        <if test="forUpdate">
+        FOR UPDATE
+        </if>
+    </select>
+
     <insert id="setGroupMetadata" timeout="3">
-        insert or replace into "group" (
-            id,
-            recovery_expiry_ts,
-            members_backup_ts)
-        values (
-            #{groupId},
-            #{metadata.recoveryExpiryTime},
-            #{metadata.membersBackupTime}
-        )
+        REPLACE INTO `group_metadata` SET
+            `group_id` = #{metadata.groupId},
+            `recovery_expiry_ts` = #{metadata.recoveryExpiryTime, jdbcType=BIGINT},
+            `members_backup_ts` = #{metadata.membersBackupTime, jdbcType=BIGINT}
     </insert>
-    <select id="getGroupMetadata" timeout="3" resultType="org.guard_jiang.storage.GroupMetadata">
-        select
-            recovery_expiry_ts as recoveryExpiryTime,
-            members_backup_ts as membersBackupTime
-        from "group" where id = #{groupId}
-    </select>
-    <select id="getGroupRoles" timeout="3" resultType="org.guard_jiang.UserRole">
-        select
-            user_id as userId,
-            role
-        from "role"
-        where group_id = #{groupId}
-    </select>
-    <select id="getGroupBlockingRecords" timeout="3" resultMap="groupBlockingRecords">
-        select
-            user_id,
-            expiry_ts
-        from "group_blocking_record"
-        where group_id = #{groupId}
+    <select id="getGroupMetadata" resultMap="groupMetadata">
+        SELECT
+            `group_id`,
+            `recovery_expiry_ts`,
+            `members_backup_ts`
+        FROM `group_metadata` WHERE `group_id` = #{groupId}
     </select>
 
-    <insert id="setGroupBlockingRecord" timeout="3">
-        insert or replace into "group_blocking_record" (
-            group_id,
-            user_id,
-            expiry_ts)
-        values (
-            #{groupId},
+    <select id="getGroupBlockingRecords" resultMap="groupBlockingRecords">
+        SELECT
+            `group_id`,
+            `user_id`,
+            `expiry_ts`
+        FROM `group_blocking_record`
+        WHERE group_id = #{groupId}
+    </select>
+
+    <insert id="setGroupBlockingRecord">
+        REPLACE INTO `group_blocking_record` (
+            `group_id`,
+            `user_id`,
+            `expiry_ts`)
+        VALUES (
+            #{record.groupId},
             #{record.userId},
-            #{record.expiryTime}
+            #{record.expiryTime, jdbcType=BIGINT}
         )
     </insert>
 
-    <select id="getGroupMembersBackup" resultType="String" timeout="3">
-        select user_id
-        from "group_member_backup" where group_id = #{groupId}
+    <delete id="removeGroupBlockingRecord">
+        DELETE FROM `group_blocking_record`
+        WHERE
+            `group_id` = #{groupId} AND
+            `user_id` = #{userId}
+    </delete>
+
+    <select id="getGroupMembersBackup" resultType="String">
+        SELECT
+            `user_id`
+        FROM `group_member_backup`
+        WHERE
+            `group_id` = #{groupId}
     </select>
 
-    <insert id="addGroupMembersBackup" timeout="3">
-        insert or replace into "group_member_backup" (
-            group_id,
-            user_id)
-        values (
+    <insert id="addGroupMembersBackup">
+        REPLACE INTO `group_member_backup` (
+            `group_id`,
+            `user_id`)
+        VALUES (
             #{groupId},
             #{userId}
         )
     </insert>
 
-    <delete id="clearGroupMemberBackup" timeout="3">
-        delete from "group_member_backup" where
-            group_id = #{groupId}
+    <delete id="clearGroupMemberBackup">
+        DELETE FROM `group_member_backup`
+        WHERE
+            `group_id` = #{groupId}
     </delete>
 
-    <select id="getChat" resultMap="chat" timeout="3">
-        select
-            host_id,
-            guest_id,
-            env_type,
-            env_id,
-            status,
-            metadata
-        from "chat" where
-            host_id = #{hostId} and
-            guest_id = #{guestId} and
-            env_type = #{chatEnv.type} and
-            env_id = #{chatEnv.id, javaType=String}
+    <select id="getChat" resultMap="chat">
+        SELECT
+            `id`,
+            `guard_id`,
+            `user_id`,
+            `env_type`,
+            `env_id`,
+            `update_ts`,
+            `stack`
+        FROM `chat` WHERE
+            `guard_id` = #{guardId} and
+            `user_id` = #{userId} and
+            `env_type` = #{chatEnv.type} and
+            `env_id` = #{chatEnv.id, javaType=String}
     </select>
 
-    <insert id="setChat" timeout="3">
-        insert or replace into "chat" (
-            host_id,
-            guest_id,
-            env_type,
-            env_id,
-            status,
-            metadata)
-        values (
-            #{chat.hostId},
-            #{chat.guestId},
+    <insert id="setChat" useGeneratedKeys="true" keyProperty="chat.id">
+        REPLACE INTO `chat` (
+            `guard_id`,
+            `user_id`,
+            `env_type`,
+            `env_id`,
+            `stack`,
+            `update_ts`)
+        VALUES (
+            #{chat.guardId},
+            #{chat.userId},
             #{chat.chatEnv.type},
             #{chat.chatEnv.id, javaType=String},
-            #{chat.status},
-            #{chat.metadata, typeHandler=org.guard_jiang.storage.JsonMapTypeHandler}
+            #{chat.stack, typeHandler=org.guard_jiang.storage.ChatStackTypeHandler},
+            #{chat.updateTime}
         )
     </insert>
 
-    <select id="getLicensesOfUser" resultMap="license" timeout="3">
-        select
-            key,
-            user_id,
-            create_ts,
-            expiry_ts,
-            max_defenders,
-            num_defenders,
-            max_supporters,
-            num_supporters
-        from "license" where
-            user_id = #{userId}
-        order by create_ts desc
+    <select id="getLicensesOfUser" resultMap="license">
+        SELECT
+            `license_key`,
+            `user_id`,
+            `create_ts`,
+            `expiry_ts`,
+            `max_defenders`,
+            `num_defenders`,
+            `max_supporters`,
+            `num_supporters`
+        FROM `license` WHERE
+            `user_id` = #{userId}
+        ORDER BY `create_ts` DESC
     </select>
 
-    <insert id="createLicense" timeout="3">
-        insert into "license" (
-            key,
-            user_id,
-            create_ts,
-            expiry_ts,
-            max_defenders,
-            num_defenders,
-            max_supporters,
-            num_supporters
-        ) values (
+    <select id="getLicense" resultMap="license">
+        SELECT
+            `id`,
+            `license_key`,
+            `user_id`,
+            `create_ts`,
+            `expiry_ts`,
+            `max_defenders`,
+            `num_defenders`,
+            `max_supporters`,
+            `num_supporters`
+        FROM `license` WHERE
+            `id` = #{licenseId}
+        <if test="forUpdate">
+        FOR UPDATE
+        </if>
+    </select>
+
+    <insert id="createLicense" useGeneratedKeys="true" keyProperty="license.id">
+        INSERT INTO `license` (
+            `license_key`,
+            `user_id`,
+            `create_ts`,
+            `expiry_ts`,
+            `max_defenders`,
+            `num_defenders`,
+            `max_supporters`,
+            `num_supporters`
+        ) VALUES (
             #{license.key},
             #{license.userId},
             #{license.createTime},
@@ -173,23 +259,43 @@
         )
     </insert>
 
-    <update id="bindLicenseToUser" timeout="3">
-        update "license" set
-            user_id = #{userId}
-        where
-            key = #{key}
+    <update id="updateLicense">
+        UPDATE `license` SET
+            `expiry_ts` = #{license.expiryTime},
+            `num_defenders` = #{license.numDefenders},
+            `num_supporters` = #{license.numSupporters},
+            `max_defenders` = #{license.maxDefenders},
+            `max_supporters` = #{license.maxSupporters}
+        WHERE
+            `id` = #{license.id}
     </update>
 
-    <update id="updateLicenseUsage" timeout="3">
-        update "license" set
-            num_defenders = num_defenders + #{defendersAdd},
-            num_supporters = num_supporters + #{supportersAdd}
-        where
-            key = #{key}
+    <update id="updateLicenseUsage">
+        UPDATE `license` SET
+            `num_defenders` = `num_defenders` + #{numDefendersAdd},
+            `num_supporters` = `num_supporters` + #{numSupportersAdd}
+        WHERE
+            `id` = #{licenseId}
     </update>
+
+    <resultMap id="accountData" type="org.guard_jiang.AccountData">
+        <constructor>
+            <idArg column="id" javaType="String"/>
+            <arg column="partition" javaType="int"/>
+        </constructor>
+        <association property="credential" resultMap="credential" />
+    </resultMap>
+
+    <resultMap id="credential" type="org.guard_jiang.Credential">
+        <result property="email" column="email" />
+        <result property="password" column="password" />
+        <result property="certificate" column="certificate" />
+        <result property="authToken" column="auth_token" />
+    </resultMap>
 
     <resultMap id="groupBlockingRecords" type="org.guard_jiang.BlockingRecord">
         <constructor>
+            <idArg column="group_id" javaType="String" />
             <idArg column="user_id" javaType="String" />
             <arg column="expiry_ts" javaType="java.time.Instant" />
         </constructor>
@@ -197,12 +303,15 @@
 
     <resultMap id="chat" type="org.guard_jiang.chat.Chat">
         <constructor>
-            <idArg column="host_id" javaType="String" />
-            <idArg column="guest_id" javaType="String" />
-            <idArg javaType="org.guard_jiang.chat.ChatEnv" resultMap="chatEnv"/>
+            <idArg column="id" javaType="_long" />
+            <arg column="guard_id" javaType="String" />
+            <arg column="user_id" javaType="String" />
+            <arg javaType="org.guard_jiang.chat.ChatEnv" resultMap="chatEnv" />
+            <arg column="stack"
+                   javaType="java.util.Deque"
+                   typeHandler="org.guard_jiang.storage.ChatStackTypeHandler" />
+            <arg column="update_ts" javaType="java.time.Instant" />
         </constructor>
-        <result property="status" column="status" />
-        <result property="metadata" column="metadata" typeHandler="org.guard_jiang.storage.JsonMapTypeHandler"/>
     </resultMap>
 
     <resultMap id="chatEnv" type="org.guard_jiang.chat.ChatEnv">
@@ -214,14 +323,33 @@
 
     <resultMap id="license" type="org.guard_jiang.License">
         <constructor>
-            <idArg column="key" javaType="String" />
+            <idArg column="id" javaType="_long" />
+            <arg column="license_key" javaType="String" />
+            <arg column="user_id" javaType="String" />
+            <arg column="create_ts" javaType="java.time.Instant" />
         </constructor>
-        <result property="userId" column="user_id" />
-        <result property="createTime" column="create_ts" />
         <result property="expiryTime" column="expiry_ts" />
         <result property="maxDefenders" column="max_defenders" />
         <result property="numDefenders" column="num_defenders" />
         <result property="maxSupporters" column="max_supporters" />
         <result property="numSupporters" column="num_supporters" />
+    </resultMap>
+
+    <resultMap id="groupRole" type="org.guard_jiang.GroupRole">
+        <constructor>
+            <idArg column="id" javaType="_long"/>
+            <arg column="group_id" javaType="String" />
+            <arg column="user_id" javaType="String" />
+            <arg column="role" javaType="org.guard_jiang.Role" />
+            <arg column="license_id" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="groupMetadata" type="org.guard_jiang.storage.GroupMetadata">
+        <constructor>
+            <idArg column="group_id" javaType="String" />
+        </constructor>
+        <result property="recoveryExpiryTime" column="recovery_expiry_ts" />
+        <result property="membersBackupTime" column="members_backup_ts" />
     </resultMap>
 </mapper>

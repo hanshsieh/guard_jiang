@@ -2,20 +2,13 @@ package org.guard_jiang;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import io.cslinmiso.line.model.LineClient;
-import line.thrift.Contact;
-import line.thrift.ContactSetting;
-import line.thrift.Group;
-import line.thrift.Message;
-import line.thrift.Operation;
+import line.thrift.*;
 import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransportException;
 import org.slf4j.Logger;
@@ -254,12 +247,31 @@ public class Account {
         sendMessage(message);
     }
 
+    public void sendContactMessage(@Nonnull String contactMid) throws IOException {
+        Message message = new Message();
+        message.setContentType(ContentType.CONTACT);
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("mid", contactMid);
+        message.setContentMetadata(metadata);
+        sendMessage(message);
+    }
+
     public String getAuthToken() {
         return client.getAuthToken();
     }
 
     public String getCertificate() {
         return credential.getCertificate();
+    }
+
+    @Nonnull
+    public Contact getContact(@Nonnull String contactId) throws IOException {
+        try {
+            return client.getApi().findContactByUserid(contactId);
+            // TODO Handle not found case
+        } catch (Exception ex) {
+            throw new IOException("Fail to find contact by ID " + contactId);
+        }
     }
 
     @Nonnull

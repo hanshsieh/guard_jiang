@@ -34,8 +34,7 @@ public class LicenseCreationChatPhase extends ChatPhase {
             return;
         }
 
-        License license = guard.createTrialLicense();
-        guard.bindLicenseToUser(license.getKey(), account.getMid());
+        License license = guard.createTrialLicense(account.getMid());
         String key = guard.getLicenseKeyProvider().toReadableForm(license.getKey());
         sendTextMessage("已為您建立金鑰並綁定至您的帳號\n金鑰: " + key);
         sendTextMessage("您接下來可以用此金鑰保護您的群組");

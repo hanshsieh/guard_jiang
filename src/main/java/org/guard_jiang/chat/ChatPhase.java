@@ -17,11 +17,13 @@ public abstract class ChatPhase {
     private final Account account;
     private final String guestId;
     private final ObjectNode data;
-    private ObjectNode newData = null;
-    private boolean leaving = false;
     private ObjectNode returnData = null;
     private ChatStatus newPhaseStatus = null;
     private ObjectNode newPhaseData = null;
+
+    // It should be true if it is either going to enter another phase or leaving
+    // the current phase
+    private boolean phaseChanging = false;
     public ChatPhase(
             @Nonnull Guard guard,
             @Nonnull Account account,
@@ -61,6 +63,12 @@ public abstract class ChatPhase {
     public void startPhase(
             @Nonnull ChatStatus newPhaseStatus,
             @Nonnull ObjectNode newPhaseData) {
+        if (phaseChanging) {
+            throw new IllegalStateException(
+                    "This phase is already going to leave or "
+                    + "entering another phase");
+        }
+        phaseChanging = true;
         this.newPhaseStatus = newPhaseStatus;
         this.newPhaseData = newPhaseData;
     }
@@ -75,7 +83,12 @@ public abstract class ChatPhase {
     }
 
     public void leavePhase(@Nonnull ObjectNode returnData) {
-        leaving = true;
+        if (phaseChanging) {
+            throw new IllegalStateException(
+                    "This phase is already going to leave or "
+                            + "entering another phase");
+        }
+        phaseChanging = true;
         this.returnData = returnData;
     }
 
@@ -85,7 +98,7 @@ public abstract class ChatPhase {
     }
 
     public boolean isLeaving() {
-        return leaving;
+        return returnData != null;
     }
 
     @Nullable
