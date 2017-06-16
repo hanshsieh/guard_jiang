@@ -159,7 +159,7 @@ public abstract class ChatPhase {
      *
      */
     public void leavePhase() {
-        leavePhase(getData().objectNode());
+        leavePhase(data.objectNode());
     }
 
     /**
