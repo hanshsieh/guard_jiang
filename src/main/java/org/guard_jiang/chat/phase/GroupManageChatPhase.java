@@ -1,9 +1,10 @@
-package org.guard_jiang.chat;
+package org.guard_jiang.chat.phase;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.guard_jiang.Account;
 import org.guard_jiang.Guard;
 import org.guard_jiang.Role;
+import org.guard_jiang.chat.ChatStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,15 +14,14 @@ import java.io.IOException;
 /**
  * Created by someone on 4/24/2017.
  */
-public class RoleManageChatPhase extends ChatPhase {
+public class GroupManageChatPhase extends ChatPhase {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(RoleManageChatPhase.class);
-
-    public static final String KEY_ROLE = "role";
+    private static final Logger LOGGER = LoggerFactory.getLogger(GroupManageChatPhase.class);
 
     private enum Option {
-        ADD_ROLES("增加%s"),
-        REMOVE_ROLES("移除%s"),
+        MANAGE_DEFENDERS("管理defenders"),
+        MANAGE_SUPPORTERS("管理supporters"),
+        MANAGE_ADMINS("管理admins"),
         GO_BACK("返回");
         private final String text;
         Option(@Nonnull String text) {
@@ -34,7 +34,7 @@ public class RoleManageChatPhase extends ChatPhase {
         }
     }
 
-    public RoleManageChatPhase(
+    public GroupManageChatPhase(
             @Nonnull Guard guard,
             @Nonnull Account account,
             @Nonnull String guestId,
@@ -42,25 +42,19 @@ public class RoleManageChatPhase extends ChatPhase {
         super(guard, account, guestId, data);
     }
 
-    private static String buildMessage(@Nonnull Role role) {
-        String roleName = role.name().toLowerCase();
+    private static String buildMessage() {
         StringBuilder builder =
-                new StringBuilder(
-                        String.format("這是%s管理介面，您想要我幫您什麼? (請輸入數字)", roleName));
+                new StringBuilder("您好，請問有什麼需要幫忙的嗎? (請輸入數字)");
         int index = 0;
         for (Option item : Option.values()) {
-            String optionText = String.format(item.getText(), roleName);
-            builder.append(String.format("\n%d: %s",
-                    ++index,
-                    optionText));
+            builder.append(String.format("\n%d: %s", ++index, item.getText()));
         }
         return builder.toString();
     }
 
     @Override
     public void onEnter() throws IOException {
-        Role role = getRole();
-        sendTextMessage(buildMessage(role));
+        sendTextMessage(buildMessage());
     }
 
     @Override
@@ -74,17 +68,19 @@ public class RoleManageChatPhase extends ChatPhase {
         try {
             int itemIdx = Integer.parseInt(text);
             item = Option.values()[itemIdx - 1];
-
         } catch (NumberFormatException | IndexOutOfBoundsException ex) {
             onInvalidResponse();
             return;
         }
         switch (item) {
-            case ADD_ROLES:
-                onAddRoles();
+            case MANAGE_DEFENDERS:
+                onManageDefenders();
                 break;
-            case REMOVE_ROLES:
-                onRemoveRoles();
+            case MANAGE_SUPPORTERS:
+                onManageSupporters();
+                break;
+            case MANAGE_ADMINS:
+                onManageAdmins();
                 break;
             case GO_BACK:
                 leavePhase();
@@ -98,29 +94,21 @@ public class RoleManageChatPhase extends ChatPhase {
         sendTextMessage("請輸入正確的數字喔!");
     }
 
-    private void onAddRoles() throws IOException {
-        Role role = getRole();
-        ObjectNode arg = getData().objectNode();
-        arg.put(RolesAddChatPhase.ARG_ROLE, role.ordinal());
-        startPhase(ChatStatus.ROLES_ADD, arg);
+    private void onManageDefenders() throws IOException {
+        onManageRole(Role.DEFENDER);
     }
 
-    private void onRemoveRoles() throws IOException {
-        Role role = getRole();
-        ObjectNode arg = getData().objectNode();
-        arg.put(RolesRemoveChatPhase.KEY_ROLE, role.ordinal());
-        startPhase(ChatStatus.ROLES_REMOVE, arg);
+    private void onManageSupporters() throws IOException {
+        onManageRole(Role.SUPPORTER);
     }
 
-    @Nonnull
-    private Role getRole() throws IOException {
-        ObjectNode data = getData();
-        int roleIdx = data.get(KEY_ROLE).asInt();
-        try {
-            return Role.values()[roleIdx];
-        } catch (IndexOutOfBoundsException ex) {
-            LOGGER.error("Invalid role index {}", roleIdx);
-            throw ex;
-        }
+    private void onManageAdmins() throws IOException {
+        onManageRole(Role.ADMIN);
+    }
+
+    private void onManageRole(@Nonnull Role role) {
+        ObjectNode arg = getData().objectNode();
+        arg.put(RoleManageChatPhase.KEY_ROLE, role.ordinal());
+        startPhase(ChatStatus.ROLE_MANAGE, arg);
     }
 }

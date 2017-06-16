@@ -1,8 +1,9 @@
-package org.guard_jiang.chat;
+package org.guard_jiang.chat.phase;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.guard_jiang.Account;
 import org.guard_jiang.Guard;
+import org.guard_jiang.chat.ChatStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

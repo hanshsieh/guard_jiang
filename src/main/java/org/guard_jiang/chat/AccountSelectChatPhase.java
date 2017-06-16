@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import line.thrift.Contact;
 import org.guard_jiang.Account;
 import org.guard_jiang.Guard;
+import org.guard_jiang.chat.phase.ChatPhase;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;

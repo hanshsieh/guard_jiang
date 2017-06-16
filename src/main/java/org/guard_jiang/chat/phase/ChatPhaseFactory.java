@@ -1,7 +1,8 @@
-package org.guard_jiang.chat;
+package org.guard_jiang.chat.phase;
 
 import org.guard_jiang.Account;
 import org.guard_jiang.Guard;
+import org.guard_jiang.chat.ChatFrame;
 
 import javax.annotation.Nonnull;
 

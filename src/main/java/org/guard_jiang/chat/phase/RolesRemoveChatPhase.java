@@ -1,20 +1,12 @@
-package org.guard_jiang.chat;
+package org.guard_jiang.chat.phase;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.guard_jiang.Account;
 import org.guard_jiang.Guard;
-import org.guard_jiang.GuardGroup;
-import org.guard_jiang.Role;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.guard_jiang.chat.ChatStatus;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Created by someone on 4/24/2017.
