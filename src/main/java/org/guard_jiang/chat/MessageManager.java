@@ -1,6 +1,5 @@
 package org.guard_jiang.chat;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import line.thrift.ContentType;
 import line.thrift.MIDType;
 import line.thrift.Message;

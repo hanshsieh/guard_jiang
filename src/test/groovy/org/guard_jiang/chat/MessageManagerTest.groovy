@@ -3,8 +3,6 @@ package org.guard_jiang.chat
 import line.thrift.ContentType
 import line.thrift.MIDType
 import line.thrift.Message
-import org.guard_jiang.Account
-import org.guard_jiang.Guard
 import spock.lang.Specification
 
 /**
