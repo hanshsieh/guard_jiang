@@ -31,7 +31,7 @@ public class Guard {
     private final Map<String, AccountManager> accountMgrs = new HashMap<>();
     private boolean started = false;
     private final Storage storage;
-    private final LicenseKeyProvider licenseKeyProvider;
+    private final LicenseKeyService licenseKeyService;
 
     public Guard(@Nonnull Config config) throws IOException {
         MyBatisSqlSessionFactory sessionFactory = new MyBatisSqlSessionFactory(
@@ -39,14 +39,14 @@ public class Guard {
                 config.getConfig("sqlWriter")
         );
         this.storage = new SqlStorage(config.getConfig("storage"), sessionFactory);
-        this.licenseKeyProvider = new LicenseKeyProvider();
+        this.licenseKeyService = new LicenseKeyService();
     }
 
     public Guard(
             @Nonnull Storage storage,
-            @Nonnull LicenseKeyProvider licenseKeyProvider) throws IOException {
+            @Nonnull LicenseKeyService licenseKeyService) throws IOException {
         this.storage = storage;
-        this.licenseKeyProvider = licenseKeyProvider;
+        this.licenseKeyService = licenseKeyService;
     }
 
     public synchronized void start() throws
@@ -169,7 +169,7 @@ public class Guard {
 
     @Nonnull
     public License createTrialLicense(@Nonnull String userId) throws IOException {
-        String key = licenseKeyProvider.buildLicenseKey();
+        String key = licenseKeyService.genLicenseKey();
         License license = new License(
                 key,
                 userId,
@@ -181,7 +181,7 @@ public class Guard {
     }
 
     @Nonnull
-    public LicenseKeyProvider getLicenseKeyProvider() {
-        return licenseKeyProvider;
+    public LicenseKeyService getLicenseKeyService() {
+        return licenseKeyService;
     }
 }

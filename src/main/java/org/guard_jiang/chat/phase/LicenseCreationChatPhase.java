@@ -11,18 +11,26 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Created by someone on 4/22/2017.
+ * This chat phase is used for creating a license for the LINE user.
  */
 public class LicenseCreationChatPhase extends ChatPhase {
 
-    private static final int MAX_TRIAL_LICENSE = 10;
+    protected static final int MAX_TRIAL_LICENSE = 10;
 
+    /**
+     * Construct a new instance.
+     *
+     * @param guard Guard.
+     * @param account The guard account.
+     * @param userId ID of the LINE user that it guard is chatting with.
+     * @param data Data.
+     */
     public LicenseCreationChatPhase(
             @Nonnull Guard guard,
             @Nonnull Account account,
-            @Nonnull String guestId,
+            @Nonnull String userId,
             @Nonnull ObjectNode data) {
-        super(guard, account, guestId, data);
+        super(guard, account, userId, data);
     }
 
     @Override
@@ -35,8 +43,8 @@ public class LicenseCreationChatPhase extends ChatPhase {
             return;
         }
 
-        License license = guard.createTrialLicense(account.getMid());
-        String key = guard.getLicenseKeyProvider().toReadableForm(license.getKey());
+        License license = guard.createTrialLicense(getUserId());
+        String key = license.getReadableKey();
         sendTextMessage("已為您建立金鑰並綁定至您的帳號\n金鑰: " + key);
         sendTextMessage("您接下來可以用此金鑰保護您的群組");
         leavePhase();
@@ -49,6 +57,8 @@ public class LicenseCreationChatPhase extends ChatPhase {
 
     @Override
     public void onReceiveTextMessage(@Nonnull String text) throws IOException {
+
+        // To prevent user from being stuck at this phase
         leavePhase();
     }
 }

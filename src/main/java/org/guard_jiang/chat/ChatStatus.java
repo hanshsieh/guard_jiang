@@ -8,7 +8,8 @@ import org.guard_jiang.chat.phase.*;
 import javax.annotation.Nonnull;
 
 /**
- * Created by someone on 4/8/2017.
+ * It represents a chatting status.
+ * Each {@link ChatStatus} has a corresponding {@link ChatPhase}.
  */
 public enum ChatStatus {
     // Common
@@ -121,7 +122,7 @@ public enum ChatStatus {
                 @Nonnull Account account,
                 @Nonnull String userId,
                 @Nonnull ObjectNode data) {
-            return new MainMenuChatPhase(
+            return new UserMainMenuChatPhase(
                     guard, account, userId, data);
         }
     };

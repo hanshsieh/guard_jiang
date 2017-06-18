@@ -8,6 +8,10 @@ import java.time.Instant;
  * Created by someone on 4/15/2017.
  */
 public class License {
+
+    private static final int CHUNK_SIZE = 5;
+    private static final char DELIMITER = '-';
+
     private long id;
     private final String key;
     private final String userId;
@@ -98,5 +102,17 @@ public class License {
 
     public void setNumSupporters(int numSupporters) {
         this.numSupporters = numSupporters;
+    }
+
+    @Nonnull
+    public String getReadableKey() {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < key.length(); ++i) {
+            if (i > 0 && (i % CHUNK_SIZE) == 0) {
+                builder.append(DELIMITER);
+            }
+            builder.append(key.charAt(i));
+        }
+        return builder.toString();
     }
 }
