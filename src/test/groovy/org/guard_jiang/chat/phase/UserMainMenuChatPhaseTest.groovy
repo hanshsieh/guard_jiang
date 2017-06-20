@@ -29,16 +29,7 @@ class UserMainMenuChatPhaseTest extends Specification {
     def "On enter, print menu list"() {
         given:
         def data = objectMapper.createObjectNode()
-        def exOptionsNode = objectMapper.createArrayNode().with {
-            UserMainMenuChatPhase.Option.values().each { UserMainMenuChatPhase.Option option ->
-                add(option.id)
-            }
-            return it
-        }
-        def exData = objectMapper.createObjectNode().with {
-            set(UserMainMenuChatPhase.KEY_OPTIONS, exOptionsNode)
-            return it
-        }
+        def exData = objectMapper.valueToTree(["options":[1L, 2L, 3L]])
 
         when:
         userMainMenuChatPhase.onEnter()
@@ -48,8 +39,6 @@ class UserMainMenuChatPhaseTest extends Specification {
             str ==~ /.*\n1: .*\n2: .*\n3: .*/
         } as String)
         1 * userMainMenuChatPhase.getData() >> data
-        println data
-        println exData
         data == exData
     }
 

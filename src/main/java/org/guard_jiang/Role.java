@@ -9,20 +9,20 @@ public enum Role {
     DEFENDER(0),
     SUPPORTER(1),
     ADMIN(2);
-    private final int code;
-    Role(int code) {
-        this.code = code;
+    private final int id;
+    Role(int id) {
+        this.id = id;
     }
-    public int getCode() {
-        return code;
+    public int getId() {
+        return id;
     }
     @Nonnull
-    public static Role fromCode(int code) {
+    public static Role fromCode(int id) {
         for (Role role : Role.values()) {
-            if (role.code == code) {
+            if (role.id == id) {
                 return role;
             }
         }
-        throw new IllegalArgumentException("Illegal code: " + code);
+        throw new IllegalArgumentException("Illegal ID: " + id);
     }
 }

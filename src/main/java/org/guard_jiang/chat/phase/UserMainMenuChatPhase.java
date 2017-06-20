@@ -21,12 +21,12 @@ public class UserMainMenuChatPhase extends ChatPhase {
     protected static final String KEY_OPTIONS = "options";
 
     protected enum Option {
-        CREATE_LICENSE("建立新的金鑰", 1),
-        MANAGE_GROUP("管理群組保護狀態", 2),
-        DO_NOTHING("目前沒有需要幫忙的", 3);
+        CREATE_LICENSE(1, "建立新的金鑰"),
+        MANAGE_GROUP(2, "管理群組保護狀態"),
+        DO_NOTHING(3, "目前沒有需要幫忙的");
         public final String text;
         public final long id;
-        Option(@Nonnull String text, long id) {
+        Option(long id, @Nonnull String text) {
             this.text = text;
             this.id = id;
         }

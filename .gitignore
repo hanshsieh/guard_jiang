@@ -5,3 +5,6 @@ target/*
 *.log.zip
 *.sqlite
 src/main/resources/secret.properties
+*.log
+*.log.zip
+*.log*.tmp

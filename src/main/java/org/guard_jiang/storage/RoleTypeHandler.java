@@ -3,9 +3,7 @@ package org.guard_jiang.storage;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 import org.guard_jiang.Role;
-import org.guard_jiang.chat.ChatStatus;
 
-import javax.annotation.Nonnull;
 import java.sql.CallableStatement;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -18,7 +16,7 @@ public class RoleTypeHandler extends BaseTypeHandler<Role> {
 
     @Override
     public void setNonNullParameter(PreparedStatement ps, int paramIdx, Role role, JdbcType jdbcType) throws SQLException {
-        ps.setInt(paramIdx, role.getCode());
+        ps.setInt(paramIdx, role.getId());
     }
 
     @Override

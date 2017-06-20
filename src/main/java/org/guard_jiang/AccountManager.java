@@ -99,6 +99,7 @@ class AccountManager {
         }
     }
 
+    @Nonnull
     private Set<String> checkJoinedGroups() throws IOException {
         Set<String> contactsToAdd = new HashSet<>();
         List<String> groupIdsJoined = account.getGroupIdsJoined();
@@ -106,14 +107,7 @@ class AccountManager {
             contactsToAdd.addAll(checkJoinedGroup(groupId));
         }
 
-        Iterator<Map.Entry<String, Instant>> itr = groupJoinedTime.entrySet().iterator();
-        while (itr.hasNext()) {
-            Map.Entry<String, Instant> entry = itr.next();
-
-            if (!groupIdsJoined.contains(entry.getKey())) {
-                itr.remove();
-            }
-        }
+        groupJoinedTime.entrySet().removeIf(entry -> !groupIdsJoined.contains(entry.getKey()));
         return contactsToAdd;
     }
 
