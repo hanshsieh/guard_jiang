@@ -3,7 +3,7 @@ package org.guard_jiang;
 import javax.annotation.Nonnull;
 
 /**
- * Created by someone on 1/31/2017.
+ * Guard role.
  */
 public enum Role {
     DEFENDER(0),
@@ -16,8 +16,16 @@ public enum Role {
     public int getId() {
         return id;
     }
+
+    /**
+     * Get the role from its ID.
+     *
+     * @param id Role ID.
+     * @return Role.
+     * @throws IllegalArgumentException If the ID is incorrect.
+     */
     @Nonnull
-    public static Role fromCode(int id) {
+    public static Role fromId(int id) throws IllegalArgumentException {
         for (Role role : Role.values()) {
             if (role.id == id) {
                 return role;

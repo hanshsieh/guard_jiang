@@ -28,7 +28,7 @@ class GroupManageChatPhaseTest extends Specification {
     def "On enter, print menu list"() {
         given:
         def data = objectMapper.createObjectNode()
-        def exData = objectMapper.valueToTree(["options":[1L, 2L, 3L, 0L]])
+        def exData = objectMapper.valueToTree(["options":[1, 2, 3, 0]])
 
         when:
         groupManageChatPhase.onEnter()
@@ -36,7 +36,7 @@ class GroupManageChatPhaseTest extends Specification {
         then:
         1 * groupManageChatPhase.sendTextMessage({ String str ->
             str ==~ /.*\n1: .*\n2: .*\n3: .*\n4: .*/
-        } as String)
+        } as String) >> {}
         1 * groupManageChatPhase.getData() >> data
         data == exData
     }
@@ -57,14 +57,10 @@ class GroupManageChatPhaseTest extends Specification {
 
     def "On receive text message, should start correct phase"() {
         given:
-        def data = groupManageChatPhase.data
-        def optionsNode = objectMapper.createArrayNode()
-        data.set(GroupManageChatPhase.KEY_OPTIONS, optionsNode)
-        optionsNode.add(option1.id)
-        optionsNode.add(option2.id)
-
         def newPhaseData = objectMapper.createObjectNode()
-        newPhaseData.put(RoleManageChatPhase.KEY_ROLE, role.getId())
+        newPhaseData.put(RoleManageChatPhase.ARG_ROLE, role.getId())
+
+        groupManageChatPhase.onEnter()
 
         when:
         groupManageChatPhase.onReceiveTextMessage(msg)
@@ -73,13 +69,13 @@ class GroupManageChatPhaseTest extends Specification {
         1 * groupManageChatPhase.startPhase(ChatStatus.ROLE_MANAGE, newPhaseData) >> {}
 
         where:
-        msg     | option1                                       | option2                                       | role
-        "2"     | GroupManageChatPhase.Option.MANAGE_DEFENDERS  | GroupManageChatPhase.Option.MANAGE_SUPPORTERS | Role.SUPPORTER
-        " 2\n"  | GroupManageChatPhase.Option.MANAGE_DEFENDERS  | GroupManageChatPhase.Option.MANAGE_SUPPORTERS | Role.SUPPORTER
-        " 2 "   | GroupManageChatPhase.Option.MANAGE_DEFENDERS  | GroupManageChatPhase.Option.MANAGE_SUPPORTERS | Role.SUPPORTER
-        "\n 2"  | GroupManageChatPhase.Option.MANAGE_DEFENDERS  | GroupManageChatPhase.Option.MANAGE_SUPPORTERS | Role.SUPPORTER
-        "1"     | GroupManageChatPhase.Option.MANAGE_DEFENDERS  | GroupManageChatPhase.Option.MANAGE_SUPPORTERS | Role.DEFENDER
-        "1"     | GroupManageChatPhase.Option.MANAGE_ADMINS     | GroupManageChatPhase.Option.MANAGE_DEFENDERS  | Role.ADMIN
+        msg     | role
+        "2"     | Role.SUPPORTER
+        " 2\n"  | Role.SUPPORTER
+        " 2 "   | Role.SUPPORTER
+        "\n 2"  | Role.SUPPORTER
+        "1"     | Role.DEFENDER
+        "3"     | Role.ADMIN
     }
 
     def "On receive text message for do nothing, leave the phase"() {
@@ -130,8 +126,7 @@ class GroupManageChatPhaseTest extends Specification {
         groupManageChatPhase.onReceiveTextMessage(msg)
 
         then:
-        1 * groupManageChatPhase.sendTextMessage(_ as String) >> {}
-        1 * groupManageChatPhase.leavePhase() >> {}
+        thrown(IllegalArgumentException)
 
         where:
         msg     | option1

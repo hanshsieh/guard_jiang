@@ -25,7 +25,7 @@ public class RoleTypeHandler extends BaseTypeHandler<Role> {
         if (rs.wasNull()) {
             return null;
         }
-        return Role.fromCode(code);
+        return Role.fromId(code);
     }
 
     @Override
@@ -34,7 +34,7 @@ public class RoleTypeHandler extends BaseTypeHandler<Role> {
         if (rs.wasNull()) {
             return null;
         }
-        return Role.fromCode(code);
+        return Role.fromId(code);
     }
 
     @Override
@@ -43,6 +43,6 @@ public class RoleTypeHandler extends BaseTypeHandler<Role> {
         if (cs.wasNull()) {
             return null;
         }
-        return Role.fromCode(code);
+        return Role.fromId(code);
     }
 }

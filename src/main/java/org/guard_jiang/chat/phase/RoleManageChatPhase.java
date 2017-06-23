@@ -1,37 +1,44 @@
 package org.guard_jiang.chat.phase;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.commons.lang3.Validate;
 import org.guard_jiang.Account;
 import org.guard_jiang.Guard;
 import org.guard_jiang.Role;
 import org.guard_jiang.chat.ChatStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
 
 /**
- * Created by someone on 4/24/2017.
+ * This phase is used to manage a specific role.
+ * User may use this phase to add or delete members of a role.
  */
 public class RoleManageChatPhase extends ChatPhase {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(RoleManageChatPhase.class);
+    public static final String ARG_ROLE = "role";
+    protected static final String KEY_OPTIONS = "options";
 
-    public static final String KEY_ROLE = "role";
-
-    private enum Option {
-        ADD_ROLES("增加%s"),
-        REMOVE_ROLES("移除%s"),
-        GO_BACK("返回");
-        private final String text;
-        Option(@Nonnull String text) {
+    protected enum Option {
+        ADD_ROLES(1, "增加%s"),
+        REMOVE_ROLES(2, "移除%s"),
+        GO_BACK(0, "返回");
+        public final String text;
+        public final int id;
+        Option(int id, @Nonnull String text) {
+            this.id = id;
             this.text = text;
         }
 
-        @Nonnull
-        public String getText() {
-            return text;
+        public static Option fromId(long id) {
+            for (Option option : Option.values()) {
+                if (option.id == id) {
+                    return option;
+                }
+            }
+            throw new IllegalArgumentException("Illegal option ID: " + id);
         }
     }
 
@@ -50,7 +57,7 @@ public class RoleManageChatPhase extends ChatPhase {
                         String.format("這是%s管理介面，您想要我幫您什麼? (請輸入數字)", roleName));
         int index = 0;
         for (Option item : Option.values()) {
-            String optionText = String.format(item.getText(), roleName);
+            String optionText = String.format(item.text, roleName);
             builder.append(String.format("\n%d: %s",
                     ++index,
                     optionText));
@@ -60,6 +67,12 @@ public class RoleManageChatPhase extends ChatPhase {
 
     @Override
     public void onEnter() throws IOException {
+        ObjectNode data = getData();
+        ArrayNode optionsNode = data.arrayNode();
+        for (Option option : Option.values()) {
+            optionsNode.add(option.id);
+        }
+        data.set(KEY_OPTIONS, optionsNode);
         Role role = getRole();
         sendTextMessage(buildMessage(role));
     }
@@ -71,16 +84,26 @@ public class RoleManageChatPhase extends ChatPhase {
 
     @Override
     public void onReceiveTextMessage(@Nonnull String text) throws IOException {
-        Option item;
+        int optionIdx;
         try {
-            int itemIdx = Integer.parseInt(text);
-            item = Option.values()[itemIdx - 1];
-
-        } catch (NumberFormatException | IndexOutOfBoundsException ex) {
+            optionIdx = Integer.parseInt(text.trim());
+        } catch (IllegalArgumentException ex) {
             onInvalidResponse();
             return;
         }
-        switch (item) {
+        JsonNode optionsNode = getData().get(KEY_OPTIONS);
+        JsonNode optionIdNode = optionsNode.get(optionIdx - 1);
+        if (optionIdNode == null) {
+            onInvalidResponse();
+            return;
+        }
+        Option option;
+        try {
+            option = Option.fromId(optionIdNode.asInt());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid option ID " + optionIdNode.asLong());
+        }
+        switch (option) {
             case ADD_ROLES:
                 onAddRoles();
                 break;
@@ -91,7 +114,7 @@ public class RoleManageChatPhase extends ChatPhase {
                 leavePhase();
                 break;
             default:
-                throw new IllegalArgumentException("Unsupported option " + item);
+                throw new IllegalArgumentException("Unsupported option " + option);
         }
     }
 
@@ -102,26 +125,25 @@ public class RoleManageChatPhase extends ChatPhase {
     private void onAddRoles() throws IOException {
         Role role = getRole();
         ObjectNode arg = getData().objectNode();
-        arg.put(RolesAddChatPhase.ARG_ROLE, role.ordinal());
+        arg.put(RolesAddChatPhase.ARG_ROLE, role.getId());
         startPhase(ChatStatus.ROLES_ADD, arg);
     }
 
     private void onRemoveRoles() throws IOException {
         Role role = getRole();
         ObjectNode arg = getData().objectNode();
-        arg.put(RolesRemoveChatPhase.KEY_ROLE, role.ordinal());
+        arg.put(RolesRemoveChatPhase.ARG_ROLE, role.getId());
         startPhase(ChatStatus.ROLES_REMOVE, arg);
     }
 
     @Nonnull
     private Role getRole() throws IOException {
         ObjectNode data = getData();
-        int roleIdx = data.get(KEY_ROLE).asInt();
-        try {
-            return Role.values()[roleIdx];
-        } catch (IndexOutOfBoundsException ex) {
-            LOGGER.error("Invalid role index {}", roleIdx);
-            throw ex;
-        }
+        JsonNode roleNode = data.get(ARG_ROLE);
+        Validate.notNull(
+                roleNode,
+                "No role is specified in the data. data: " + data);
+        int roleId = roleNode.asInt();
+        return Role.fromId(roleId);
     }
 }

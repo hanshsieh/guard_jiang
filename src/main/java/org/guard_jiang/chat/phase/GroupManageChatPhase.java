@@ -18,8 +18,6 @@ import java.io.IOException;
  */
 public class GroupManageChatPhase extends ChatPhase {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(GroupManageChatPhase.class);
-
     protected static final String KEY_OPTIONS = "options";
 
     protected enum Option {
@@ -28,13 +26,13 @@ public class GroupManageChatPhase extends ChatPhase {
         MANAGE_ADMINS(3, "管理admins"),
         DO_NOTHING(0, "返回");
         public final String text;
-        public final long id;
-        Option(long id, @Nonnull String text) {
+        public final int id;
+        Option(int id, @Nonnull String text) {
             this.id = id;
             this.text = text;
         }
 
-        public static Option fromId(long id) {
+        public static Option fromId(int id) {
             for (Option option : Option.values()) {
                 if (option.id == id) {
                     return option;
@@ -93,15 +91,13 @@ public class GroupManageChatPhase extends ChatPhase {
             onInvalidResponse();
             return;
         }
-        Option item;
+        Option option;
         try {
-            item = Option.fromId(optionIdNode.asLong());
+            option = Option.fromId(optionIdNode.asInt());
         } catch (IllegalArgumentException ex) {
-            LOGGER.error("Invalid option ID {}", optionIdNode.asLong());
-            onError();
-            return;
+            throw new IllegalArgumentException("Invalid option ID " + optionIdNode.asLong());
         }
-        switch (item) {
+        switch (option) {
             case MANAGE_DEFENDERS:
                 onManageRole(Role.DEFENDER);
                 break;
@@ -115,8 +111,7 @@ public class GroupManageChatPhase extends ChatPhase {
                 leavePhase();
                 break;
             default:
-                onError();
-                break;
+                throw new IllegalArgumentException("Unexpected option: " + option);
         }
     }
 
@@ -126,12 +121,7 @@ public class GroupManageChatPhase extends ChatPhase {
 
     private void onManageRole(@Nonnull Role role) {
         ObjectNode arg = getData().objectNode();
-        arg.put(RoleManageChatPhase.KEY_ROLE, role.getId());
+        arg.put(RoleManageChatPhase.ARG_ROLE, role.getId());
         startPhase(ChatStatus.ROLE_MANAGE, arg);
-    }
-
-    private void onError() throws IOException {
-        sendTextMessage("糟糕，出問題了，請稍後再試喔...");
-        leavePhase();
     }
 }
