@@ -103,4 +103,58 @@ class GroupManageChatPhaseTest extends Specification {
         "\n 2 " | GroupManageChatPhase.Option.MANAGE_DEFENDERS  | GroupManageChatPhase.Option.DO_NOTHING
         "1"     | GroupManageChatPhase.Option.DO_NOTHING        | GroupManageChatPhase.Option.MANAGE_DEFENDERS
     }
+
+    def "On receive invalid text message, should print prompt message"() {
+        given:
+        groupManageChatPhase.onEnter()
+
+        when:
+        groupManageChatPhase.onReceiveTextMessage(msg)
+
+        then:
+        1 * groupManageChatPhase.sendTextMessage(_ as String) >> {}
+        0 * groupManageChatPhase.leavePhase() >> {}
+
+        where:
+        msg << ["hello", "", "-1", "0", String.valueOf(GroupManageChatPhase.Option.values().size() + 1)]
+    }
+
+    def "On receive text message, cannot found the corresponding option ID"() {
+        given:
+        def data = groupManageChatPhase.data
+        def optionsNode = objectMapper.createArrayNode()
+        data.set(GroupManageChatPhase.KEY_OPTIONS, optionsNode)
+        optionsNode.add(option1)
+
+        when:
+        groupManageChatPhase.onReceiveTextMessage(msg)
+
+        then:
+        1 * groupManageChatPhase.sendTextMessage(_ as String) >> {}
+        1 * groupManageChatPhase.leavePhase() >> {}
+
+        where:
+        msg     | option1
+        "1"     | -1
+        "1"     | 4
+    }
+
+    def "On receive text message for do nothing, should leave the phase"() {
+        given:
+        def data = groupManageChatPhase.data
+        def optionsNode = objectMapper.createArrayNode()
+        data.set(GroupManageChatPhase.KEY_OPTIONS, optionsNode)
+        optionsNode.add(option1.id)
+
+        when:
+        groupManageChatPhase.onReceiveTextMessage(msg)
+
+        then:
+        0 * groupManageChatPhase.sendTextMessage(_ as String) >> {}
+        1 * groupManageChatPhase.leavePhase() >> {}
+
+        where:
+        msg     | option1
+        "1"     | GroupManageChatPhase.Option.DO_NOTHING
+    }
 }
