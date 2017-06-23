@@ -18,7 +18,7 @@ import java.io.IOException;
  */
 public class RoleManageChatPhase extends ChatPhase {
 
-    public static final String ARG_ROLE = "role";
+    public static final String ARG_ROLE_ID = "role";
     protected static final String KEY_OPTIONS = "options";
 
     protected enum Option {
@@ -125,21 +125,21 @@ public class RoleManageChatPhase extends ChatPhase {
     private void onAddRoles() throws IOException {
         Role role = getRole();
         ObjectNode arg = getData().objectNode();
-        arg.put(RolesAddChatPhase.ARG_ROLE, role.getId());
+        arg.put(RolesAddChatPhase.ARG_ROLE_ID, role.getId());
         startPhase(ChatStatus.ROLES_ADD, arg);
     }
 
     private void onRemoveRoles() throws IOException {
         Role role = getRole();
         ObjectNode arg = getData().objectNode();
-        arg.put(RolesRemoveChatPhase.ARG_ROLE, role.getId());
+        arg.put(RolesRemoveChatPhase.ARG_ROLE_ID, role.getId());
         startPhase(ChatStatus.ROLES_REMOVE, arg);
     }
 
     @Nonnull
     private Role getRole() throws IOException {
         ObjectNode data = getData();
-        JsonNode roleNode = data.get(ARG_ROLE);
+        JsonNode roleNode = data.get(ARG_ROLE_ID);
         Validate.notNull(
                 roleNode,
                 "No role is specified in the data. data: " + data);

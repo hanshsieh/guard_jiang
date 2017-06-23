@@ -232,7 +232,7 @@ public class SqlStorage implements Storage {
 
     @Nonnull
     @Override
-    public License getLicense(long licenseId) throws IOException {
+    public License getLicense(@Nonnull String licenseId) throws IOException, IllegalArgumentException {
         try (SqlSession session = sessionFactory.openReadSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
             License license = mapper.getLicense(licenseId, false);

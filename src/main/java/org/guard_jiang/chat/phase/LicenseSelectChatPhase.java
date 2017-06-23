@@ -21,8 +21,19 @@ public class LicenseSelectChatPhase extends ChatPhase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LicenseSelectChatPhase.class);
     private static final int LICENSE_PREFIX_LEN = 5;
-    private static final String KEY_LICENSES = "licenses";
-    public static final String RET_LICENSE = "license";
+    private static final String KEY_LICENSE_IDS = "licenses";
+
+    /**
+     * A key of the return data, whose value should be a boolean denoting whether
+     * this phase is canceled.
+     * If the phase is canceled, the return data won't contain other fields.
+     */
+    public static final String RET_CANCELED = "canceled";
+
+    /**
+     * A key of the return data, whose value should be a string if the license ID.
+     */
+    public static final String RET_LICENSE_ID = "licenseId";
 
     public LicenseSelectChatPhase(
             @Nonnull Guard guard,
@@ -39,7 +50,7 @@ public class LicenseSelectChatPhase extends ChatPhase {
         List<License> licenses = guard.getLicensesOfUser(account.getMid());
         if(licenses.isEmpty()) {
             sendTextMessage("您現在還沒有任何憑證，請先建立一個");
-            leavePhase();
+            onCanceled();
             return;
         }
         sendTextMessage("請選擇一個憑證(請輸入數字或\"?\"返回): ");
@@ -59,9 +70,9 @@ public class LicenseSelectChatPhase extends ChatPhase {
                     licensePrefix,
                     license.getMaxDefenders() - license.getNumDefenders(),
                     license.getMaxSupporters() - license.getNumSupporters()));
-            licensesNode.add(licenseKey);
+            licensesNode.add(license.getId());
         }
-        data.set(KEY_LICENSES, licensesNode);
+        data.set(KEY_LICENSE_IDS, licensesNode);
     }
 
     @Override
@@ -72,27 +83,36 @@ public class LicenseSelectChatPhase extends ChatPhase {
     @Override
     public void onReceiveTextMessage(@Nonnull String text) throws IOException {
         if ("?".equals(text)) {
-            leavePhase();
+            onCanceled();
+            return;
         }
         ObjectNode data = getData();
-        JsonNode licenseNode = data.get(KEY_LICENSES);
+        JsonNode licenseIdsNode = data.get(KEY_LICENSE_IDS);
         int licenseIdx;
         try {
-            licenseIdx = Integer.parseInt(text);
+            licenseIdx = Integer.parseInt(text) - 1;
         } catch (NumberFormatException ex) {
             onInvalidResponse();
             return;
         }
 
-        if (licenseIdx < 0 || licenseIdx > licenseNode.size()) {
+        JsonNode licenseIdNode = licenseIdsNode.get(licenseIdx);
+        if (licenseIdNode == null) {
             onInvalidResponse();
             return;
         }
 
-        String licenseKey = licenseNode.get(licenseIdx).asText();
+        String licenseId = licenseIdNode.asText();
         ObjectNode returnData = data.objectNode();
-        returnData.set(RET_LICENSE, data.textNode(licenseKey));
+        returnData.put(RET_LICENSE_ID, licenseId);
+        returnData.put(RET_CANCELED, false);
         leavePhase(returnData);
+    }
+
+    private void onCanceled() {
+        ObjectNode ret = getData().objectNode();
+        ret.put(RET_CANCELED, true);
+        leavePhase(ret);
     }
 
     private void onInvalidResponse() throws IOException {

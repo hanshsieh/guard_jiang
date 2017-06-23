@@ -95,7 +95,7 @@ public interface SqlStorageMapper {
 
     @Nullable
     License getLicense(
-            @Param("licenseId") long licenseId,
+            @Param("licenseId") @Nonnull String licenseId,
             @Param("forUpdate") boolean forUpdate);
 
     void createLicense(
@@ -107,7 +107,7 @@ public interface SqlStorageMapper {
     );
 
     void updateLicenseUsage(
-            @Param("licenseId") long licenseId,
+            @Param("licenseId") @Nonnull String licenseId,
             @Param("numDefendersAdd") int numDefendersAdd,
             @Param("numSupportersAdd") int numSupportersAdd
     );

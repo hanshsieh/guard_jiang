@@ -63,8 +63,16 @@ public interface Storage {
     @Nonnull
     List<License> getLicensesOfUser(@Nonnull String userId) throws IOException;
 
+    /**
+     * Get license with its ID.
+     *
+     * @param licenseId License ID
+     * @return License.
+     * @throws IOException IO error occurs.
+     * @throws IllegalArgumentException No license with the ID can be found.
+     */
     @Nonnull
-    License getLicense(long licenseId) throws IOException;
+    License getLicense(@Nonnull String licenseId) throws IOException, IllegalArgumentException;
 
     void createLicense(@Nonnull License license) throws IOException;
 }

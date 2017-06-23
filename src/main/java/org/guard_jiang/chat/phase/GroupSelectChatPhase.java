@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -20,6 +21,7 @@ import java.net.URL;
 public class GroupSelectChatPhase extends ChatPhase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GroupSelectChatPhase.class);
+    public static final String RET_CANCELED = "canceled";
     public static final String RET_GROUP_ID = "groupId";
 
     public GroupSelectChatPhase(
@@ -47,7 +49,8 @@ public class GroupSelectChatPhase extends ChatPhase {
     public void onReceiveTextMessage(@Nonnull String text) throws IOException {
         text = text.trim();
         if ("?".equals(text)) {
-            leavePhase();
+            leavePhase(prepareRetData(null));
+            return;
         }
         URL url;
         try {
@@ -74,11 +77,7 @@ public class GroupSelectChatPhase extends ChatPhase {
             sendTextMessage("找不到該群組");
             return;
         }
-        ObjectNode data = getData();
-        String groupId = group.getId();
-        ObjectNode newData = data.objectNode();
-        data.set(RET_GROUP_ID, data.textNode(groupId));
-        leavePhase(newData);
+        leavePhase(prepareRetData(group.getId()));
     }
 
     /**
@@ -99,5 +98,15 @@ public class GroupSelectChatPhase extends ChatPhase {
         String path = url.getPath();
         String[] pathTokens = path.split("/");
         return pathTokens[pathTokens.length - 1];
+    }
+
+    @Nonnull
+    private ObjectNode prepareRetData(@Nullable String groupId) {
+        ObjectNode ret = getData().objectNode();
+        ret.put(RET_CANCELED, groupId != null);
+        if (groupId != null) {
+            ret.put(RET_GROUP_ID, groupId);
+        }
+        return ret;
     }
 }

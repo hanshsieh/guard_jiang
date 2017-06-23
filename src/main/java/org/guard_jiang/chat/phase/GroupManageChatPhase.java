@@ -7,8 +7,6 @@ import org.guard_jiang.Account;
 import org.guard_jiang.Guard;
 import org.guard_jiang.Role;
 import org.guard_jiang.chat.ChatStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
@@ -121,7 +119,7 @@ public class GroupManageChatPhase extends ChatPhase {
 
     private void onManageRole(@Nonnull Role role) {
         ObjectNode arg = getData().objectNode();
-        arg.put(RoleManageChatPhase.ARG_ROLE, role.getId());
+        arg.put(RoleManageChatPhase.ARG_ROLE_ID, role.getId());
         startPhase(ChatStatus.ROLE_MANAGE, arg);
     }
 }

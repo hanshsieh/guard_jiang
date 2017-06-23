@@ -13,7 +13,7 @@ import java.io.IOException;
  */
 public class RolesRemoveChatPhase extends ChatPhase {
 
-    public static final String ARG_ROLE = "role";
+    public static final String ARG_ROLE_ID = "role";
 
     public RolesRemoveChatPhase(
             @Nonnull Guard guard,

@@ -8,6 +8,7 @@ import org.guard_jiang.Guard;
 import org.guard_jiang.chat.phase.ChatPhase;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -18,9 +19,9 @@ import java.util.List;
  */
 public class AccountSelectChatPhase extends ChatPhase {
 
-    public static final String KEY_MIN_NUM = "min_num";
-    public static final String KEY_MAX_NUM = "max_num";
-    public static final String KEY_ACCOUNT_IDS = "account_ids";
+    public static final String ARG_MIN_NUM = "min_num";
+    public static final String ARG_MAX_NUM = "max_num";
+    public static final String ARG_ACCOUNT_IDS = "account_ids";
     public static final String RET_CANCELED = "canceled";
     public static final String RET_SELECTED_ACCOUNT_IDS = "selected_account_ids";
 
@@ -48,7 +49,7 @@ public class AccountSelectChatPhase extends ChatPhase {
         }
 
         if (accountIds.length == 0) {
-            leavePhase(prepareRetData(Collections.emptyList(), false));
+            leavePhase(prepareRetData(Collections.emptyList()));
             return;
         }
 
@@ -62,15 +63,18 @@ public class AccountSelectChatPhase extends ChatPhase {
         }
     }
 
-    private ObjectNode prepareRetData(@Nonnull List<String> selAccountIds, boolean canceled) {
+    private ObjectNode prepareRetData(@Nullable List<String> selAccountIds) {
         ObjectNode data = getData();
         ObjectNode retData = data.objectNode();
-        ArrayNode selAccountIdsNode = data.arrayNode();
-        retData.set(RET_SELECTED_ACCOUNT_IDS, selAccountIdsNode);
-        retData.put(RET_CANCELED, canceled);
-        for (String selAccountId : selAccountIds) {
-            selAccountIdsNode.add(selAccountId);
+
+        if (selAccountIds != null) {
+            ArrayNode selAccountIdsNode = data.arrayNode();
+            retData.set(RET_SELECTED_ACCOUNT_IDS, selAccountIdsNode);
+            for (String selAccountId : selAccountIds) {
+                selAccountIdsNode.add(selAccountId);
+            }
         }
+        retData.put(RET_CANCELED, selAccountIds != null);
         return retData;
     }
 
@@ -83,7 +87,7 @@ public class AccountSelectChatPhase extends ChatPhase {
     public void onReceiveTextMessage(@Nonnull String text) throws IOException {
         text = text.trim();
         if ("?".equals(text)) {
-            leavePhase(prepareRetData(Collections.emptyList(), true));
+            leavePhase(prepareRetData(null));
             return;
         }
         parseData();
@@ -103,7 +107,7 @@ public class AccountSelectChatPhase extends ChatPhase {
             sendTextMessage(String.format("您輸入的數量不太對喔，請選擇至少%d個，最多%d個", minNum, maxNum));
             return;
         }
-        leavePhase(prepareRetData(selAccountIds, false));
+        leavePhase(prepareRetData(selAccountIds));
     }
 
     private int parseAccountIndex(@Nonnull String str) throws IOException {
@@ -123,14 +127,14 @@ public class AccountSelectChatPhase extends ChatPhase {
 
     private void parseData() {
         ObjectNode data = getData();
-        ArrayNode accountIdsNode = data.withArray(KEY_ACCOUNT_IDS);
+        ArrayNode accountIdsNode = data.withArray(ARG_ACCOUNT_IDS);
         accountIds = new String[accountIdsNode.size()];
         for (int idx = 0; idx < accountIds.length; ++idx) {
             String accountId = accountIdsNode.get(idx).asText();
             accountIds[idx] = accountId;
         }
-        minNum = data.get(KEY_MIN_NUM).asInt();
-        minNum = data.get(KEY_MAX_NUM).asInt();
+        minNum = data.get(ARG_MIN_NUM).asInt();
+        minNum = data.get(ARG_MAX_NUM).asInt();
         if (minNum < 0 || maxNum < 0 || minNum > maxNum) {
             throw new IllegalArgumentException("Illegal minimum and maximum account number: min: "
                     + minNum + ", max: " + maxNum);

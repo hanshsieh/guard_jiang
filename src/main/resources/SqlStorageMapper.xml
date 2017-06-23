@@ -323,7 +323,7 @@
 
     <resultMap id="license" type="org.guard_jiang.License">
         <constructor>
-            <idArg column="id" javaType="_long" />
+            <idArg column="id" javaType="String" />
             <arg column="license_key" javaType="String" />
             <arg column="user_id" javaType="String" />
             <arg column="create_ts" javaType="java.time.Instant" />
@@ -337,7 +337,7 @@
 
     <resultMap id="groupRole" type="org.guard_jiang.GroupRole">
         <constructor>
-            <idArg column="id" javaType="_long"/>
+            <idArg column="id" javaType="String"/>
             <arg column="group_id" javaType="String" />
             <arg column="user_id" javaType="String" />
             <arg column="role" javaType="org.guard_jiang.Role" />

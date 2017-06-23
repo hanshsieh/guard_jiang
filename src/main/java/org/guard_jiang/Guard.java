@@ -163,7 +163,7 @@ public class Guard {
     }
 
     @Nonnull
-    public License getLicense(long licenseId) throws IOException {
+    public License getLicense(@Nonnull String licenseId) throws IOException {
         return storage.getLicense(licenseId);
     }
 
@@ -171,6 +171,7 @@ public class Guard {
     public License createTrialLicense(@Nonnull String userId) throws IOException {
         String key = licenseKeyService.genLicenseKey();
         License license = new License(
+                null,
                 key,
                 userId,
                 Instant.now());

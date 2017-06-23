@@ -31,7 +31,7 @@ class RoleManageChatPhaseTest extends Specification {
     def "On enter, print menu list"(Role role) {
         given:
         def data = roleManageChatPhase.data
-        data.put(RoleManageChatPhase.ARG_ROLE, role.id)
+        data.put(RoleManageChatPhase.ARG_ROLE_ID, role.id)
 
         when:
         roleManageChatPhase.onEnter()
@@ -56,7 +56,7 @@ class RoleManageChatPhaseTest extends Specification {
     def "On enter, role ID in data isn't correct"() {
         given:
         def data = roleManageChatPhase.data
-        data.put(RoleManageChatPhase.ARG_ROLE, roleId)
+        data.put(RoleManageChatPhase.ARG_ROLE_ID, roleId)
 
         when:
         roleManageChatPhase.onEnter()
@@ -85,7 +85,7 @@ class RoleManageChatPhaseTest extends Specification {
     def "On receive text message, should start correct phase"() {
         given:
         def data = roleManageChatPhase.data
-        data.put(RoleManageChatPhase.ARG_ROLE, role.id)
+        data.put(RoleManageChatPhase.ARG_ROLE_ID, role.id)
         roleManageChatPhase.onEnter()
 
         def newPhaseData = objectMapper.createObjectNode()
@@ -99,14 +99,14 @@ class RoleManageChatPhaseTest extends Specification {
 
         where:
         msg     | role           | newPhase                | newPhaseRoleKey
-        "1"     | Role.SUPPORTER | ChatStatus.ROLES_ADD    | RolesAddChatPhase.ARG_ROLE
-        " 2\n"  | Role.DEFENDER  | ChatStatus.ROLES_REMOVE | RolesRemoveChatPhase.ARG_ROLE
+        "1"     | Role.SUPPORTER | ChatStatus.ROLES_ADD    | RolesAddChatPhase.ARG_ROLE_ID
+        " 2\n"  | Role.DEFENDER  | ChatStatus.ROLES_REMOVE | RolesRemoveChatPhase.ARG_ROLE_ID
     }
 
     def "On receive invalid text message, should print prompt message"() {
         given:
         def data = roleManageChatPhase.data
-        data.put(RoleManageChatPhase.ARG_ROLE, Role.DEFENDER.id)
+        data.put(RoleManageChatPhase.ARG_ROLE_ID, Role.DEFENDER.id)
         roleManageChatPhase.onEnter()
 
         when:
@@ -123,7 +123,7 @@ class RoleManageChatPhaseTest extends Specification {
     def "On receive text message, cannot found the corresponding option ID"() {
         given:
         def data = roleManageChatPhase.data
-        data.put(RoleManageChatPhase.ARG_ROLE, Role.DEFENDER.id)
+        data.put(RoleManageChatPhase.ARG_ROLE_ID, Role.DEFENDER.id)
         def optionsNode = objectMapper.createArrayNode()
         data.set(RoleManageChatPhase.KEY_OPTIONS, optionsNode)
         optionsNode.add(optionId)
@@ -143,7 +143,7 @@ class RoleManageChatPhaseTest extends Specification {
     def "On receive text message for do nothing, should leave phase"() {
         given:
         def data = roleManageChatPhase.data
-        data.put(RoleManageChatPhase.ARG_ROLE, role.id)
+        data.put(RoleManageChatPhase.ARG_ROLE_ID, role.id)
         roleManageChatPhase.onEnter()
 
         when:

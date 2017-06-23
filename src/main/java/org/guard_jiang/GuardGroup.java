@@ -46,9 +46,9 @@ public class GuardGroup {
         return storage.getGroupRoleOfUser(id, userId);
     }
 
-    public void addRole(@Nonnull String userId, @Nonnull Role role, long licenseId)
+    public void addRole(@Nonnull String userId, @Nonnull Role role, @Nonnull String licenseId)
         throws IOException {
-        GroupRole groupRole = new GroupRole(id, userId, role, licenseId);
+        GroupRole groupRole = new GroupRole(null, id, userId, role, licenseId);
         LOGGER.debug("Adding {} as {} in group {}", groupRole.getUserId(), groupRole.getRole(), id);
         storage.addGroupRole(groupRole);
     }

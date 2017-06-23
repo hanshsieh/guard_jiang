@@ -1,22 +1,24 @@
 package org.guard_jiang;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
- * Created by icand on 2017/6/1.
+ * It represents a user's role in a group.
  */
 public class GroupRole {
-    private long id;
+    private String id;
     private final String groupId;
     private final String userId;
     private final Role role;
-    private final long licenseId;
+    private final String licenseId;
 
-    public GroupRole(@Nonnull String groupId, @Nonnull String userId, @Nonnull Role role, long licenseId) {
-        this(-1L, groupId, userId, role, licenseId);
-    }
-
-    public GroupRole(long id, @Nonnull String groupId, @Nonnull String userId, @Nonnull Role role, long licenseId) {
+    public GroupRole(
+            @Nullable String id,
+            @Nonnull String groupId,
+            @Nonnull String userId,
+            @Nonnull Role role,
+            @Nonnull String licenseId) {
         this.id = id;
         this.groupId = groupId;
         this.userId = userId;
@@ -24,11 +26,12 @@ public class GroupRole {
         this.licenseId = licenseId;
     }
 
-    public long getId() {
+    @Nullable
+    public String getId() {
         return id;
     }
 
-    public void setId(long id) {
+    public void setId(@Nullable String id) {
         this.id = id;
     }
 
@@ -47,7 +50,8 @@ public class GroupRole {
         return role;
     }
 
-    public long getLicenseId() {
+    @Nonnull
+    public String getLicenseId() {
         return licenseId;
     }
 }

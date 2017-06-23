@@ -58,7 +58,7 @@ class GroupManageChatPhaseTest extends Specification {
     def "On receive text message, should start correct phase"() {
         given:
         def newPhaseData = objectMapper.createObjectNode()
-        newPhaseData.put(RoleManageChatPhase.ARG_ROLE, role.getId())
+        newPhaseData.put(RoleManageChatPhase.ARG_ROLE_ID, role.getId())
 
         groupManageChatPhase.onEnter()
 
