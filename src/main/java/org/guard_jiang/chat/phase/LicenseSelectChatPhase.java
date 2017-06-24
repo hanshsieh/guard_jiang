@@ -11,17 +11,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * Created by someone on 4/24/2017.
+ * This phase is used to select a license of the user.
  */
 public class LicenseSelectChatPhase extends ChatPhase {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(LicenseSelectChatPhase.class);
+    private static final int TIME_ZONE_OFFSET_HOURS = 8;
     private static final int LICENSE_PREFIX_LEN = 5;
-    private static final String KEY_LICENSE_IDS = "licenses";
+    protected static final String KEY_LICENSE_IDS = "licenses";
 
     /**
      * A key of the return data, whose value should be a boolean denoting whether
@@ -50,7 +54,7 @@ public class LicenseSelectChatPhase extends ChatPhase {
         List<License> licenses = guard.getLicensesOfUser(account.getMid());
         if(licenses.isEmpty()) {
             sendTextMessage("您現在還沒有任何憑證，請先建立一個");
-            onCanceled();
+            leavePhase(prepareReturnData(null));
             return;
         }
         sendTextMessage("請選擇一個憑證(請輸入數字或\"?\"返回): ");
@@ -59,15 +63,19 @@ public class LicenseSelectChatPhase extends ChatPhase {
         int index = 0;
         for (License license : licenses) {
             ++index;
-            String licenseKey = license.getKey();
-            String licensePrefix = licenseKey.substring(0, LICENSE_PREFIX_LEN);
+            String licensePrefix = license.getKey().substring(0, LICENSE_PREFIX_LEN);
+            String createTimeStr = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(
+                    ZonedDateTime.ofInstant(
+                            license.getCreateTime(), ZoneOffset.ofHours(TIME_ZONE_OFFSET_HOURS)));
             sendTextMessage(String.format(
                     "%d:\n" +
                     "  key: %s...\n" +
+                    "  建立時間: %s\n" +
                     "  可用defender: %d\n" +
                     "  可用supporter: %d",
                     index,
                     licensePrefix,
+                    createTimeStr,
                     license.getMaxDefenders() - license.getNumDefenders(),
                     license.getMaxSupporters() - license.getNumSupporters()));
             licensesNode.add(license.getId());
@@ -82,8 +90,9 @@ public class LicenseSelectChatPhase extends ChatPhase {
 
     @Override
     public void onReceiveTextMessage(@Nonnull String text) throws IOException {
+        text = text.trim();
         if ("?".equals(text)) {
-            onCanceled();
+            leavePhase(prepareReturnData(null));
             return;
         }
         ObjectNode data = getData();
@@ -103,16 +112,17 @@ public class LicenseSelectChatPhase extends ChatPhase {
         }
 
         String licenseId = licenseIdNode.asText();
-        ObjectNode returnData = data.objectNode();
-        returnData.put(RET_LICENSE_ID, licenseId);
-        returnData.put(RET_CANCELED, false);
-        leavePhase(returnData);
+        leavePhase(prepareReturnData(licenseId));
     }
 
-    private void onCanceled() {
-        ObjectNode ret = getData().objectNode();
-        ret.put(RET_CANCELED, true);
-        leavePhase(ret);
+    @Nonnull
+    private ObjectNode prepareReturnData(@Nullable String licenseId) {
+        ObjectNode returnData = getData().objectNode();
+        returnData.put(RET_CANCELED, licenseId == null);
+        if (licenseId != null) {
+            returnData.put(RET_LICENSE_ID, licenseId);
+        }
+        return returnData;
     }
 
     private void onInvalidResponse() throws IOException {
