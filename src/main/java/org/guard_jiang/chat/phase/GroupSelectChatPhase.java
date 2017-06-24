@@ -56,7 +56,7 @@ public class GroupSelectChatPhase extends ChatPhase {
         try {
             url = new URL(text);
         } catch (MalformedURLException ex) {
-            sendTextMessage("請輸入合法的邀請網址");
+            onInvalidUrl();
             return;
         }
 
@@ -65,7 +65,7 @@ public class GroupSelectChatPhase extends ChatPhase {
             ticketId = getTicketIdFromGroupLink(url);
         } catch (IllegalArgumentException ex) {
             LOGGER.debug("Fail to get ticket ID from URL", ex);
-            sendTextMessage("請輸入合法的邀請網址");
+            onInvalidUrl();
             return;
         }
         Account account = getAccount();
@@ -91,22 +91,30 @@ public class GroupSelectChatPhase extends ChatPhase {
      * @throws IllegalArgumentException The URL isn't a valid group invitation link.
      */
     private String getTicketIdFromGroupLink(URL url) throws IllegalArgumentException {
-        String authority = url.getAuthority();
-        if (!"line.me".equals(authority)) {
-            throw new IllegalArgumentException("不合法的authority: " + authority);
+        String host = url.getHost();
+        if (!"line.me".equals(host)) {
+            throw new IllegalArgumentException("Invalid host: " + host);
         }
         String path = url.getPath();
-        String[] pathTokens = path.split("/");
-        return pathTokens[pathTokens.length - 1];
+        String[] pathTokens = path.split("/", -1);
+        String ticketId = pathTokens[pathTokens.length - 1];
+        if (ticketId.isEmpty()) {
+            throw new IllegalArgumentException("Fail to get ticket ID from url " + url);
+        }
+        return ticketId;
     }
 
     @Nonnull
     private ObjectNode prepareRetData(@Nullable String groupId) {
         ObjectNode ret = getData().objectNode();
-        ret.put(RET_CANCELED, groupId != null);
+        ret.put(RET_CANCELED, groupId == null);
         if (groupId != null) {
             ret.put(RET_GROUP_ID, groupId);
         }
         return ret;
+    }
+
+    private void onInvalidUrl() throws IOException {
+        sendTextMessage("請輸入合法的邀請網址");
     }
 }
