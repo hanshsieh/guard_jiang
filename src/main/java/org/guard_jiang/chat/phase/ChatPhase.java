@@ -1,9 +1,13 @@
 package org.guard_jiang.chat.phase;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import line.thrift.ContentType;
+import line.thrift.Message;
 import org.guard_jiang.Account;
 import org.guard_jiang.Guard;
 import org.guard_jiang.chat.ChatStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -21,6 +25,9 @@ import java.io.IOException;
  * and data can be returned to the calling {@link ChatPhase}.
  */
 public abstract class ChatPhase {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatPhase.class);
+
     private enum State {
         NONE,
         CALLING,
@@ -73,13 +80,26 @@ public abstract class ChatPhase {
             @Nonnull ChatStatus returnStatus,
             @Nonnull ObjectNode returnData) throws IOException;
 
+    public void onReceiveMessage(@Nonnull Message message) throws IOException {
+        if (!ContentType.NONE.equals(message.getContentType()) ||
+                message.getText() == null) {
+            return;
+        }
+        String text = message.getText();
+        if (text == null) {
+            LOGGER.warn("Receive a message with type NONE, but no text. message: {}", message);
+            return;
+        }
+        onReceiveTextMessage(text);
+    }
+
     /**
      * It should be invoked when a text message is received from the LINE user.
      *
      * @param text Message text.
      * @throws IOException IO error occurs.
      */
-    public abstract void onReceiveTextMessage(@Nonnull String text) throws IOException;
+    protected abstract void onReceiveTextMessage(@Nonnull String text) throws IOException;
 
     /**
      * Send text message to the LINE user.

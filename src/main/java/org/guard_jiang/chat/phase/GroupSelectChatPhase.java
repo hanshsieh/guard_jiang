@@ -73,8 +73,9 @@ public class GroupSelectChatPhase extends ChatPhase {
         try {
             group = account.findGroupByTicket(ticketId);
         } catch (Exception ex) {
-            LOGGER.debug("Fail to find group by ticket. ticketId: {}", ticketId, ex);
-            sendTextMessage("找不到該群組");
+            LOGGER.debug("Fail to find group by ticket. "
+                    + "It may be caused by expired ticket. ticketId: {}", ticketId, ex);
+            sendTextMessage("找不到該群組。如果狀況持續發生，有可能是該網址已過期，請更新該網址。");
             return;
         }
         leavePhase(prepareRetData(group.getId()));

@@ -12,6 +12,9 @@
 
         <!-- Sets the number of seconds the driver will wait for a response from the database. -->
         <setting name="defaultStatementTimeout" value="3" />
+
+        <!-- Turn off auto mapping to prevent mapping fields incorrectly -->
+        <setting name="autoMappingBehavior" value="NONE" />
     </settings>
     <typeHandlers>
         <typeHandler handler="org.guard_jiang.storage.RoleTypeHandler" javaType="org.guard_jiang.Role"/>

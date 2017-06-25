@@ -79,7 +79,7 @@ public class RoleManageChatPhase extends ChatPhase {
 
     @Override
     public void onReturn(@Nonnull ChatStatus returnStatus, @Nonnull ObjectNode returnData) throws IOException {
-        leavePhase();
+        sendTextMessage(buildMessage(getRole()));
     }
 
     @Override
@@ -120,6 +120,7 @@ public class RoleManageChatPhase extends ChatPhase {
 
     private void onInvalidResponse() throws IOException {
         sendTextMessage("請輸入正確的數字喔!");
+        sendTextMessage(buildMessage(getRole()));
     }
 
     private void onAddRoles() throws IOException {

@@ -15,7 +15,7 @@ import java.util.List;
  */
 public class LicenseCreationChatPhase extends ChatPhase {
 
-    protected static final int MAX_TRIAL_LICENSE = 10;
+    protected static final int MAX_TRIAL_LICENSE = 3;
 
     /**
      * Construct a new instance.

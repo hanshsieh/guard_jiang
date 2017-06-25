@@ -247,12 +247,13 @@ public class Account {
         sendMessage(message);
     }
 
-    public void sendContactMessage(@Nonnull String contactMid) throws IOException {
+    public void sendContactMessage(@Nonnull String toId, @Nonnull String contactMid) throws IOException {
         Message message = new Message();
         message.setContentType(ContentType.CONTACT);
         Map<String, String> metadata = new HashMap<>();
         metadata.put("mid", contactMid);
         message.setContentMetadata(metadata);
+        message.setToId(toId);
         sendMessage(message);
     }
 

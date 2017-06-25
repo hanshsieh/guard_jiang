@@ -35,7 +35,6 @@
             #{account.credential.authToken, jdbcType=VARCHAR}
         )
     </insert>
-
     <update id="updateGuardAccount">
         UPDATE `guard_account` SET
             `partition` = #{account.partition},
@@ -206,6 +205,7 @@
 
     <select id="getLicensesOfUser" resultMap="license">
         SELECT
+            `id`,
             `license_key`,
             `user_id`,
             `create_ts`,
@@ -341,7 +341,7 @@
             <arg column="group_id" javaType="String" />
             <arg column="user_id" javaType="String" />
             <arg column="role" javaType="org.guard_jiang.Role" />
-            <arg column="license_id" javaType="_long"/>
+            <arg column="license_id" javaType="String"/>
         </constructor>
     </resultMap>
 

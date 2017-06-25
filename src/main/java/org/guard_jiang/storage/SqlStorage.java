@@ -41,10 +41,22 @@ public class SqlStorage implements Storage {
     }
 
     @Override
+    public void createGuardAccount(@Nonnull AccountData accountData) throws IOException {
+        try (SqlSession session = sessionFactory.openWriteSession()) {
+            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
+            mapper.createGuardAccount(accountData);
+            session.commit();
+        }
+    }
+
+    @Override
     public void updateGuardAccount(@Nonnull AccountData accountData) throws IOException {
         try (SqlSession session = sessionFactory.openWriteSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            mapper.updateGuardAccount(accountData);
+            int nUpdated = mapper.updateGuardAccount(accountData);
+            if (nUpdated <= 0) {
+                throw new IOException("The account doesn't exist");
+            }
             session.commit();
         }
     }
@@ -201,14 +213,14 @@ public class SqlStorage implements Storage {
         }
     }
 
-    @Nonnull
+    @Nullable
     public Chat getChat(
-            @Nonnull String hostId,
-            @Nonnull String guestId,
+            @Nonnull String guardId,
+            @Nonnull String userId,
             @Nonnull ChatEnv env) throws IOException {
         try (SqlSession session = sessionFactory.openReadSession()) {
             SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            return mapper.getChat(hostId, guestId, env);
+            return mapper.getChat(guardId, userId, env);
         }
     }
 

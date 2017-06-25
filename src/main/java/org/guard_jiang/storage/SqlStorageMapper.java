@@ -21,7 +21,10 @@ public interface SqlStorageMapper {
             @Param("partition") int partition,
             @Param("withCredential") boolean withCredential);
 
-    void updateGuardAccount(
+    void createGuardAccount(
+            @Param("account") @Nonnull AccountData accountData);
+
+    int updateGuardAccount(
             @Param("account") @Nonnull AccountData accountData);
 
     void addGroupRole(

@@ -2,6 +2,8 @@ package org.guard_jiang.chat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import line.thrift.ContentType;
+import line.thrift.Message;
 import org.guard_jiang.Account;
 import org.guard_jiang.Guard;
 import org.guard_jiang.chat.phase.ChatPhase;
@@ -68,24 +70,36 @@ public class ChatManager {
         }
     }
 
-    public void onReceiveTextMessage(@Nonnull String text) throws IOException {
-        startChat();
-
-        ChatPhase chatPhase = getOrCreateChatPhase();
-        if (chatPhase == null) {
+    public void onReceiveMessage(@Nonnull Message message) throws IOException {
+        if (!ChatEnvType.USER.equals(chatEnv.getType())) {
             return;
         }
 
+        startChat();
         try {
-            chatPhase.onReceiveTextMessage(text);
+            ChatPhase chatPhase = getChatPhase();
+            if (chatPhase == null) {
+                Deque<ChatFrame> stack = chat.getStack();
+                ChatFrame chatFrame = getDefaultChatFrame();
+                stack.addLast(chatFrame);
+                chatPhase = chatPhaseFactory.createChatPhase(chatFrame);
+                chatPhase.onEnter();
+                return;
+            }
+            chatPhase.onReceiveMessage(message);
             handlePhaseChanges(chatPhase);
         } catch (Exception ex) {
             chat.getStack().clear();
-            LOGGER.error("Error occurs when handling message. text: {}", text, ex);
+            LOGGER.error("Error occurs when handling message. message: {}", message, ex);
             account.sendTextMessage("糟糕，發生錯誤了...請等會再來找我喔", userId);
         } finally {
             saveChat();
         }
+    }
+
+    public void onReceiveTextMessage(@Nonnull String text) throws IOException {
+
+
     }
 
     private void saveChat() throws IOException {
@@ -148,22 +162,6 @@ public class ChatManager {
     }
 
     @Nullable
-    private ChatPhase getOrCreateChatPhase() throws IOException {
-        ChatPhase chatPhase = getChatPhase();
-        if (chatPhase == null) {
-            Deque<ChatFrame> stack = chat.getStack();
-            ChatFrame chatFrame = getDefaultChatFrame();
-            if (chatFrame == null) {
-                return null;
-            }
-            stack.addLast(chatFrame);
-            chatPhase = chatPhaseFactory.createChatPhase(chatFrame);
-            chatPhase.onEnter();
-        }
-        return chatPhase;
-    }
-
-    @Nullable
     private ChatPhase getChatPhase() throws IOException {
         Deque<ChatFrame> stack = chat.getStack();
         if (stack.isEmpty()) {
@@ -172,11 +170,8 @@ public class ChatManager {
         return chatPhaseFactory.createChatPhase(stack.getLast());
     }
 
-    @Nullable
+    @Nonnull
     private ChatFrame getDefaultChatFrame() {
-        if (!ChatEnvType.USER.equals(chatEnv.getType())) {
-            return null;
-        }
         return new ChatFrame(
                 ChatStatus.USER_MAIN_MENU,
                 objectMapper.createObjectNode()

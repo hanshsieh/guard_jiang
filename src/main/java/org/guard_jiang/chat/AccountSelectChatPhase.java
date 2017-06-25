@@ -15,15 +15,17 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Created by someone on 4/24/2017.
+ * This phase is for selecting from a list of guard accounts.
+ * The guard accounts being selected should have been added to contacts of the guard account
+ * talking to the user.
  */
 public class AccountSelectChatPhase extends ChatPhase {
 
-    public static final String ARG_MIN_NUM = "min_num";
-    public static final String ARG_MAX_NUM = "max_num";
-    public static final String ARG_ACCOUNT_IDS = "account_ids";
+    public static final String ARG_MIN_NUM = "minNum";
+    public static final String ARG_MAX_NUM = "maxNum";
+    public static final String ARG_ACCOUNT_IDS = "accountIds";
     public static final String RET_CANCELED = "canceled";
-    public static final String RET_SELECTED_ACCOUNT_IDS = "selected_account_ids";
+    public static final String RET_SELECTED_ACCOUNT_IDS = "selectedAccountIds";
 
     private int minNum = -1;
     private int maxNum = -1;
@@ -43,11 +45,6 @@ public class AccountSelectChatPhase extends ChatPhase {
 
         parseData();
 
-        if(minNum > accountIds.length) {
-            throw new IllegalStateException("Minimum selected accounts " + minNum
-                    + " exceeds the number of accounts");
-        }
-
         if (accountIds.length == 0) {
             leavePhase(prepareRetData(Collections.emptyList()));
             return;
@@ -57,9 +54,8 @@ public class AccountSelectChatPhase extends ChatPhase {
         sendTextMessage(String.format("您至少要選擇%d個，最多%d個", minNum, maxNum));
         int idx = 0;
         for (String accountId : accountIds) {
-            Contact guardContact = account.getContact(accountId);
             sendTextMessage(String.format("%d:", idx + 1));
-            account.sendContactMessage(guardContact.getMid());
+            account.sendContactMessage(getUserId(), accountId);
         }
     }
 
@@ -74,7 +70,7 @@ public class AccountSelectChatPhase extends ChatPhase {
                 selAccountIdsNode.add(selAccountId);
             }
         }
-        retData.put(RET_CANCELED, selAccountIds != null);
+        retData.put(RET_CANCELED, selAccountIds == null);
         return retData;
     }
 
@@ -98,13 +94,14 @@ public class AccountSelectChatPhase extends ChatPhase {
             try {
                 idx = parseAccountIndex(token);
             } catch (IllegalArgumentException ex) {
+                sendTextMessage(String.format("您所輸入的\"%s\"不是合法的的數字喔!(或可輸入\"?\"取消此操作)", token));
                 return;
             }
             String accountId = accountIds[idx];
             selAccountIds.add(accountId);
         }
         if (selAccountIds.size() < minNum || selAccountIds.size() > maxNum) {
-            sendTextMessage(String.format("您輸入的數量不太對喔，請選擇至少%d個，最多%d個", minNum, maxNum));
+            sendTextMessage(String.format("您輸入的數量不對喔，請選擇至少%d個，最多%d個", minNum, maxNum));
             return;
         }
         leavePhase(prepareRetData(selAccountIds));
@@ -113,13 +110,11 @@ public class AccountSelectChatPhase extends ChatPhase {
     private int parseAccountIndex(@Nonnull String str) throws IOException {
         int idx;
         try {
-            idx = Integer.parseInt(str.trim());
+            idx = Integer.parseInt(str.trim()) - 1;
         } catch (NumberFormatException ex) {
-            sendTextMessage("請輸入正確的數字喔!");
             throw new IllegalArgumentException("Illegal account index: " + str);
         }
-        if (idx < 0 || idx > accountIds.length) {
-            sendTextMessage("請輸入正確的數字喔!");
+        if (idx < 0 || idx >= accountIds.length) {
             throw new IllegalArgumentException("Account index out of range: " + idx);
         }
         return idx;
@@ -133,11 +128,24 @@ public class AccountSelectChatPhase extends ChatPhase {
             String accountId = accountIdsNode.get(idx).asText();
             accountIds[idx] = accountId;
         }
-        minNum = data.get(ARG_MIN_NUM).asInt();
-        minNum = data.get(ARG_MAX_NUM).asInt();
+        if (data.has(ARG_MIN_NUM)) {
+            minNum = data.get(ARG_MIN_NUM).asInt();
+        } else {
+            minNum = 0;
+        }
+        if (data.has(ARG_MAX_NUM)) {
+            maxNum = data.get(ARG_MAX_NUM).asInt();
+        } else {
+            maxNum = accountIds.length;
+        }
         if (minNum < 0 || maxNum < 0 || minNum > maxNum) {
             throw new IllegalArgumentException("Illegal minimum and maximum account number: min: "
                     + minNum + ", max: " + maxNum);
+        }
+
+        if(minNum > accountIds.length) {
+            throw new IllegalArgumentException("Minimum selected accounts " + minNum
+                    + " exceeds the number of accounts");
         }
     }
 }

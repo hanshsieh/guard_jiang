@@ -25,16 +25,17 @@ public class RolesRemoveChatPhase extends ChatPhase {
 
     @Override
     public void onEnter() throws IOException {
-        // TODO
+        sendTextMessage("抱歉，此功能目前尚未支援喔");
+        leavePhase();
     }
 
     @Override
     public void onReturn(@Nonnull ChatStatus returnStatus, @Nonnull ObjectNode returnData) throws IOException {
-        // TODO
+        leavePhase();
     }
 
     @Override
     public void onReceiveTextMessage(@Nonnull String text) throws IOException {
-        // TODO
+        leavePhase();
     }
 }

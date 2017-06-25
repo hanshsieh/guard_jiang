@@ -50,14 +50,13 @@ public class LicenseSelectChatPhase extends ChatPhase {
     @Override
     public void onEnter() throws IOException {
         Guard guard = getGuard();
-        Account account = getAccount();
-        List<License> licenses = guard.getLicensesOfUser(account.getMid());
+        List<License> licenses = guard.getLicensesOfUser(getUserId());
         if(licenses.isEmpty()) {
-            sendTextMessage("您現在還沒有任何憑證，請先建立一個");
+            sendTextMessage("您現在還沒有任何金鑰，請先回到主選單建立一個");
             leavePhase(prepareReturnData(null));
             return;
         }
-        sendTextMessage("請選擇一個憑證(請輸入數字或\"?\"返回): ");
+        sendTextMessage("請選擇一個金鑰(請輸入數字或\"?\"返回): ");
         ObjectNode data = getData();
         ArrayNode licensesNode = data.arrayNode();
         int index = 0;
@@ -126,6 +125,6 @@ public class LicenseSelectChatPhase extends ChatPhase {
     }
 
     private void onInvalidResponse() throws IOException {
-        sendTextMessage("請輸入正確的數字喔!");
+        sendTextMessage("請輸入正確的數字喔! (或輸入\"?\"返回)");
     }
 }

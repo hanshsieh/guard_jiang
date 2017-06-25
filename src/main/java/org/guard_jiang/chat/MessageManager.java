@@ -49,17 +49,15 @@ public class MessageManager {
             return;
         }
 
-        if (!ContentType.NONE.equals(message.getContentType()) ||
-                message.getText() == null) {
-            LOGGER.debug("Receive non-text message: {}", message);
+        if (message.getFromId() == null) {
+            LOGGER.warn("Receive a message without from ID. message: {}", message);
             return;
         }
 
-        LOGGER.debug("Receive text message: {}", message.getText());
-        ChatEnv chatEnv = new ChatEnv(ChatEnvType.USER, message.getToId());
+        ChatEnv chatEnv = new ChatEnv(ChatEnvType.USER, message.getFromId());
         ChatManager chatManager = chatManagerFactory.createChatManager(
                 chatEnv, message.getFromId());
-        chatManager.onReceiveTextMessage(message.getText());
+        chatManager.onReceiveMessage(message);
     }
 
 }

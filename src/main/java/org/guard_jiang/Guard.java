@@ -132,11 +132,11 @@ public class Guard {
     }
 
     @Nonnull
-    public Chat getChat(@Nonnull String hostId, @Nonnull String guestId, @Nonnull ChatEnv env)
+    public Chat getChat(@Nonnull String guardId, @Nonnull String userId, @Nonnull ChatEnv env)
             throws IOException {
-        Chat chat = storage.getChat(hostId, guestId, env);
+        Chat chat = storage.getChat(guardId, userId, env);
         if (chat == null) {
-            chat = new Chat(hostId, guestId, env);
+            chat = new Chat(guardId, userId, env);
         }
         return chat;
     }

@@ -19,6 +19,8 @@ public interface Storage {
     @Nonnull
     List<AccountData> getGuardAccounts(boolean withCredential);
 
+    void createGuardAccount(@Nonnull AccountData accountData) throws IOException;
+
     void updateGuardAccount(@Nonnull AccountData accountData) throws IOException;
 
     @Nonnull
