@@ -72,7 +72,7 @@ public abstract class ChatPhase {
      * It should be invoked when the chat returns from another {@link ChatPhase} to this
      * {@link ChatPhase}.
      *
-     * @param returnStatus The {@ChatStatus} of the returning {@link ChatPhase}.
+     * @param returnStatus The {@link ChatStatus} of the returning {@link ChatPhase}.
      * @param returnData   The data returned from the returning {@link ChatPhase}.
      * @throws IOException IO error occurs.
      */

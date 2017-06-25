@@ -2,6 +2,9 @@ package org.guard_jiang.chat.phase
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
+import line.thrift.ContentType
+import line.thrift.MIDType
+import line.thrift.Message
 import org.guard_jiang.Account
 import org.guard_jiang.Guard
 import org.guard_jiang.chat.ChatStatus
@@ -24,22 +27,80 @@ class ChatPhaseTest extends Specification {
     ChatPhase chatPhase
 
     def setup() {
-        chatPhase = new ChatPhase(guard, account, userId, data) {
-            @Override
-            void onEnter() throws IOException {
+        chatPhase = Spy(ChatPhase, constructorArgs: [guard, account, userId, data])
+    }
 
-            }
 
-            @Override
-            void onReturn(@Nonnull ChatStatus returnStatus, @Nonnull ObjectNode returnData) throws IOException {
-
-            }
-
-            @Override
-            void onReceiveTextMessage(@Nonnull String text) throws IOException {
-
-            }
+    def "On receive text message"() {
+        given:
+        def msg = new Message().with {
+            it.toType = toType
+            it.fromId = "test_from_id"
+            it.toId = "test_to_id"
+            it.text = "apple"
+            it.contentType = ContentType.NONE
+            return it
         }
+
+        when:
+        chatPhase.onReceiveMessage(msg)
+
+        then:
+        1 * chatPhase.onReceiveTextMessage("apple") >> {}
+
+        where:
+        toType        | _
+        MIDType.USER  | _
+        MIDType.GROUP | _
+        MIDType.USER  | _
+    }
+
+    def "On receive text message, but the text is null"() {
+        given:
+        def msg = new Message().with {
+            it.toType = toType
+            it.fromId = "test_from_id"
+            it.toId = "test_to_id"
+            it.text = null
+            it.contentType = ContentType.NONE
+            return it
+        }
+
+        when:
+        chatPhase.onReceiveMessage(msg)
+
+        then:
+        0 * chatPhase.onReceiveTextMessage(_ as String) >> {}
+
+        where:
+        toType        | _
+        MIDType.USER  | _
+        MIDType.GROUP | _
+        MIDType.USER  | _
+    }
+
+    def "On receive non-text messages, should ignore"() {
+        given:
+        def msg = new Message().with {
+            it.toType = toType
+            it.fromId = "test_from_id"
+            it.toId = "test_to_id"
+            it.text = text
+            it.contentType = contentType
+            return it
+        }
+
+        when:
+        chatPhase.onReceiveMessage(msg)
+
+        then:
+        0 * chatPhase.onReceiveTextMessage(_ as String) >> {}
+
+        where:
+        toType        | contentType       | text
+        MIDType.USER  | ContentType.IMAGE | "apple"
+        MIDType.GROUP | ContentType.IMAGE | "apple"
+        MIDType.USER  | ContentType.CALL  | "apple"
     }
 
     def "Can send text message"() {

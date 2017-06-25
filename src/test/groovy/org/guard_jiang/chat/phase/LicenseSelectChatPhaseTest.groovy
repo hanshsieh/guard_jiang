@@ -57,7 +57,7 @@ class LicenseSelectChatPhaseTest extends Specification {
 
         then:
         _ * account.getMid() >> guardId
-        1 * guard.getLicensesOfUser(guardId) >> licenses
+        1 * guard.getLicensesOfUser(userId) >> licenses
         1 * licenseSelectChatPhase.sendTextMessage({ String msg ->
             msg ==~ /(?s)1:\n.*AAAAA\.\.\..*defender.*9.*supporter.*7.*/
         } as String) >> {}
@@ -85,7 +85,7 @@ class LicenseSelectChatPhaseTest extends Specification {
 
         then:
         _ * account.getMid() >> guardId
-        1 * guard.getLicensesOfUser(guardId) >> []
+        1 * guard.getLicensesOfUser(userId) >> []
         1 * licenseSelectChatPhase.sendTextMessage(_ as String) >> {}
         1 * licenseSelectChatPhase.leavePhase(retData) >> {}
     }

@@ -97,11 +97,6 @@ public class ChatManager {
         }
     }
 
-    public void onReceiveTextMessage(@Nonnull String text) throws IOException {
-
-
-    }
-
     private void saveChat() throws IOException {
         guard.setChat(chat);
     }

@@ -68,18 +68,22 @@ class RoleManageChatPhaseTest extends Specification {
         roleId << [-1, 100]
     }
 
-    def "On return, leave the phase"() {
+    def "On return, print the menu list"(Role role) {
         given:
+        def data = roleManageChatPhase.data
+        data.put(RoleManageChatPhase.ARG_ROLE_ID, role.id)
         def returnData = objectMapper.createObjectNode()
 
         when:
-        roleManageChatPhase.onReturn(returnStatus, returnData)
+        roleManageChatPhase.onReturn(ChatStatus.ROLE_MANAGE, returnData)
 
         then:
-        1 * roleManageChatPhase.leavePhase() >> {}
+        1 * roleManageChatPhase.sendTextMessage({ String str ->
+            str ==~ /.*${role.name().toLowerCase()}.*\n1: [^\n]+\n2: [^\n]+\n3: [^\n]+/
+        } as String) >> {}
 
         where:
-        returnStatus << [ChatStatus.ROLE_MANAGE]
+        role << Role.values()
     }
 
     def "On receive text message, should start correct phase"() {
@@ -113,7 +117,7 @@ class RoleManageChatPhaseTest extends Specification {
         roleManageChatPhase.onReceiveTextMessage(msg)
 
         then:
-        1 * roleManageChatPhase.sendTextMessage(_ as String) >> {}
+        (1.._) * roleManageChatPhase.sendTextMessage(_ as String) >> {}
         0 * roleManageChatPhase.leavePhase() >> {}
 
         where:

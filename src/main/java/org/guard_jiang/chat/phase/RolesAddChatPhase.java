@@ -137,7 +137,7 @@ public class RolesAddChatPhase extends ChatPhase {
                 .filter(guardId -> !usersWithRole.contains(guardId))
                 .collect(Collectors.toList());
 
-        sendTextMessage("請選擇您想要用那些機器人來保護您的群組");
+        sendTextMessage("請選擇您想要用哪些機器人來保護您的群組");
         ObjectNode arg = data.objectNode();
         ArrayNode accountIdsNode = data.arrayNode();
 

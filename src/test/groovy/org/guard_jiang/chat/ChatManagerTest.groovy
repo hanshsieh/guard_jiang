@@ -2,6 +2,7 @@ package org.guard_jiang.chat
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
+import line.thrift.Message
 import org.guard_jiang.Account
 import org.guard_jiang.Guard
 import org.guard_jiang.chat.phase.ChatPhase
@@ -16,7 +17,7 @@ class ChatManagerTest extends Specification {
 
     def guard = Mock(Guard)
     def account = Mock(Account)
-    def objectMapper = Mock(ObjectMapper)
+    def objectMapper = new ObjectMapper()
     def chatPhaseFactory = Mock(ChatPhaseFactory)
     ChatManager chatManager
 
@@ -28,8 +29,6 @@ class ChatManagerTest extends Specification {
         given:
         def userId = "test_user_id"
         def chatEnv = new ChatEnv(envType, userId)
-        def chat = Mock(Chat)
-        def stack = new ArrayDeque<ChatFrame>()
         chatManager = new ChatManager(
                 guard,
                 account,
@@ -38,28 +37,25 @@ class ChatManagerTest extends Specification {
                 objectMapper,
                 chatPhaseFactory
         )
+        def msg = new Message()
 
         when:
-        chatManager.onReceiveTextMessage("test_text")
+        chatManager.onReceiveMessage(msg)
 
         then:
-        _ * account.getMid() >> "test_mid"
-        1 * guard.getChat("test_mid", userId, chatEnv) >> chat
-        _ * chat.getStack() >> stack
+        0 * guard.getChat("test_mid", userId, chatEnv)
         0 * _._
 
         where:
         envType << [ChatEnvType.GROUP, ChatEnvType.ROOM]
     }
 
-    def "Given empty stack, receive a text message, and no calling and leaving"() {
+    def "Given empty stack, receive a message, shouldn't invoke chat phase"() {
         given:
         def userId = "test_user_id"
         def chatEnv = new ChatEnv(ChatEnvType.USER, userId)
         def chat = Mock(Chat)
         def stack = new ArrayDeque<ChatFrame>()
-        def emptyData = Mock(ObjectNode)
-        def newData = Mock(ObjectNode)
         def chatPhase = Mock(ChatPhase)
         chatManager = new ChatManager(
                 guard,
@@ -69,41 +65,41 @@ class ChatManagerTest extends Specification {
                 objectMapper,
                 chatPhaseFactory
         )
+        def msg = new Message()
 
         when:
-        chatManager.onReceiveTextMessage("test_text")
+        chatManager.onReceiveMessage(msg)
 
         then:
         _ * account.getMid() >> "test_mid"
         1 * guard.getChat("test_mid", userId, chatEnv) >> chat
         _ * chat.getStack() >> stack
-        _ * objectMapper.createObjectNode() >> emptyData
         1 * chatPhaseFactory.createChatPhase({ ChatFrame chatFrame ->
             chatFrame.chatStatus == ChatStatus.USER_MAIN_MENU &&
-                chatFrame.data.is(emptyData)
+                chatFrame.data.size() == 0
         } as ChatFrame) >> chatPhase
         1 * chatPhase.onEnter()
-        1 * chatPhase.onReceiveTextMessage("test_text")
-        _ * chatPhase.isLeaving() >> false
-        _ * chatPhase.isCalling() >> false
-        _ * chatPhase.getData() >> newData
+        0 * chatPhase.onReceiveMessage(_ as Message)
         1 * guard.setChat({ Chat arg ->
             arg.stack.size() == 1 &&
                 arg.stack[0].with {
                     chatStatus == ChatStatus.USER_MAIN_MENU &&
-                    data.is(newData)
+                    data.size() == 0
                 }
         } as Chat)
         0 * _._
     }
 
-    def "Given empty stack, receive a text message, and there's calling"() {
+    def "Given non-empty stack, receive a text message, and there's calling"() {
         given:
         def userId = "test_user_id"
         def chatEnv = new ChatEnv(ChatEnvType.USER, userId)
         def chat = Mock(Chat)
-        def stack = new ArrayDeque<ChatFrame>()
-        def emptyData = Mock(ObjectNode)
+        def chatFrame = new ChatFrame(ChatStatus.USER_MAIN_MENU, objectMapper.createObjectNode())
+        def stack = new ArrayDeque<ChatFrame>().with {
+            add(chatFrame)
+            return it
+        }
         def newData = Mock(ObjectNode)
         def chatPhase = Mock(ChatPhase)
         def newChatStatus = ChatStatus.ACCOUNTS_SELECT
@@ -117,30 +113,27 @@ class ChatManagerTest extends Specification {
                 objectMapper,
                 chatPhaseFactory
         )
+        def msg = new Message()
 
         when:
-        chatManager.onReceiveTextMessage("test_text")
+        chatManager.onReceiveMessage(msg)
 
         then:
         _ * account.getMid() >> "test_mid"
         1 * guard.getChat("test_mid", userId, chatEnv) >> chat
         _ * chat.getStack() >> stack
-        _ * objectMapper.createObjectNode() >> emptyData
-        1 * chatPhaseFactory.createChatPhase({ ChatFrame chatFrame ->
-            chatFrame.chatStatus == ChatStatus.USER_MAIN_MENU &&
-                    chatFrame.data.is(emptyData)
-        } as ChatFrame) >> chatPhase
-        1 * chatPhase.onReceiveTextMessage("test_text")
+        1 * chatPhaseFactory.createChatPhase(chatFrame) >> chatPhase
+        1 * chatPhase.onReceiveMessage(msg)
         _ * chatPhase.isLeaving() >> false
         _ * chatPhase.isCalling() >> true
         _ * chatPhase.getData() >> newData
         _ * chatPhase.getNewPhaseStatus() >> newChatStatus
         _ * chatPhase.getNewPhaseData() >> newChatPhaseData
-        1 * chatPhaseFactory.createChatPhase({ ChatFrame chatFrame ->
-            chatFrame.chatStatus == newChatStatus &&
-                    chatFrame.data.is(newChatPhaseData)
+        1 * chatPhaseFactory.createChatPhase({ ChatFrame arg ->
+            arg.chatStatus == newChatStatus &&
+                arg.data.is(newChatPhaseData)
         } as ChatFrame) >> newChatPhase
-        1 * chatPhase.onEnter()
+        0 * chatPhase._
         1 * newChatPhase.onEnter()
         _ * newChatPhase.getData() >> newChatPhaseData
         _ * newChatPhase.isLeaving() >> false
@@ -148,7 +141,7 @@ class ChatManagerTest extends Specification {
         1 * guard.setChat({ Chat arg ->
             arg.stack.size() == 2 &&
                 arg.stack[0].with {
-                    chatStatus == ChatStatus.USER_MAIN_MENU &&
+                    chatStatus == chatFrame.chatStatus &&
                         data.is(newData)
                 } &&
                 arg.stack[1].with {
@@ -159,13 +152,16 @@ class ChatManagerTest extends Specification {
         0 * _._
     }
 
-    def "Given empty stack, receive a text message, and there is leaving"() {
+    def "Given non-empty stack, receive a text message, and there is leaving"() {
         given:
         def userId = "test_user_id"
         def chatEnv = new ChatEnv(ChatEnvType.USER, userId)
         def chat = Mock(Chat)
-        def stack = new ArrayDeque<ChatFrame>()
-        def emptyData = Mock(ObjectNode)
+        def chatFrame = new ChatFrame(ChatStatus.USER_MAIN_MENU, objectMapper.createObjectNode())
+        def stack = new ArrayDeque<ChatFrame>().with {
+            add(chatFrame)
+            return it
+        }
         def newData = Mock(ObjectNode)
         def chatPhase = Mock(ChatPhase)
         def returnData = Mock(ObjectNode)
@@ -177,21 +173,17 @@ class ChatManagerTest extends Specification {
                 objectMapper,
                 chatPhaseFactory
         )
+        def msg = new Message()
 
         when:
-        chatManager.onReceiveTextMessage("test_text")
+        chatManager.onReceiveMessage(msg)
 
         then:
         _ * account.getMid() >> "test_mid"
         1 * guard.getChat("test_mid", userId, chatEnv) >> chat
         _ * chat.getStack() >> stack
-        _ * objectMapper.createObjectNode() >> emptyData
-        1 * chatPhaseFactory.createChatPhase({ ChatFrame chatFrame ->
-            chatFrame.chatStatus == ChatStatus.USER_MAIN_MENU &&
-                    chatFrame.data.is(emptyData)
-        } as ChatFrame) >> chatPhase
-        1 * chatPhase.onEnter()
-        1 * chatPhase.onReceiveTextMessage("test_text")
+        1 * chatPhaseFactory.createChatPhase(chatFrame) >> chatPhase
+        1 * chatPhase.onReceiveMessage(msg)
         _ * chatPhase.isLeaving() >> true
         _ * chatPhase.isCalling() >> false
         _ * chatPhase.getData() >> newData
@@ -225,9 +217,10 @@ class ChatManagerTest extends Specification {
                 objectMapper,
                 chatPhaseFactory
         )
+        def msg = new Message()
 
         when:
-        chatManager.onReceiveTextMessage("test_text")
+        chatManager.onReceiveMessage(msg)
 
         then:
         _ * account.getMid() >> "test_mid"
@@ -241,7 +234,7 @@ class ChatManagerTest extends Specification {
         } as ChatFrame) >> firstChatPhase
 
         // Handle the message
-        1 * firstChatPhase.onReceiveTextMessage("test_text")
+        1 * firstChatPhase.onReceiveMessage(msg)
         _ * firstChatPhase.isLeaving() >> false
 
         // The phase wants to enter another phase
@@ -317,9 +310,10 @@ class ChatManagerTest extends Specification {
                 chatPhaseFactory
         )
         def limit = ChatManager.MAX_ROUND_PER_MESSAGE
+        def msg = new Message()
 
         when:
-        chatManager.onReceiveTextMessage("test_text")
+        chatManager.onReceiveMessage(msg)
 
         then:
         _ * account.getMid() >> "test_mid"
@@ -333,7 +327,7 @@ class ChatManagerTest extends Specification {
         } as ChatFrame) >> firstChatPhase
 
         // Handle the message
-        1 * firstChatPhase.onReceiveTextMessage("test_text")
+        1 * firstChatPhase.onReceiveMessage(msg)
         _ * firstChatPhase.isLeaving() >> false
 
         // The phase wants to enter another phase
