@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.guard_jiang.services.storage.sql.mappers.GroupMapper">
+    <insert id="registerGroup">
+        INSERT IGNORE INTO `group` (
+            `id`
+        ) VALUES (
+            #{groupId}
+        )
+    </insert>
+
+    <select id="getGroup" resultMap="group">
+        SELECT
+            `id`,
+            `license_id`,
+            `recovery_expiry_ts`,
+            `members_backup_ts`
+        WHERE
+            `id` = #{groupId}
+    </select>
+
+    <update id="updateGroup">
+        UPDATE `group` SET
+            `license_id` = #{group.licenseId},
+            `recovery_expiry_ts` = #{group.recoveryExpiryTime, jdbcType=BIGINT},
+            `members_backup_ts` = #{group.membersBackupTime, jdbcType=BIGINT}
+        WHERE
+            `id` = #{group.id}
+    </update>
+
+
+    <select id="getGroupMembersBackup" resultType="String">
+        SELECT
+        `user_id`
+        FROM `group_member_backup`
+        WHERE
+        `group_id` = #{groupId}
+    </select>
+
+    <insert id="addGroupMembersBackup">
+        REPLACE INTO `group_member_backup` (
+        `group_id`,
+        `user_id`)
+        VALUES (
+        #{groupId},
+        #{userId}
+        )
+    </insert>
+
+    <delete id="clearGroupMemberBackup">
+        DELETE FROM `group_member_backup`
+        WHERE
+        `group_id` = #{groupId}
+    </delete>
+
+    <resultMap id="group" type="org.guard_jiang.services.storage.sql.records.GroupRecord">
+        <constructor>
+            <idArg column="id" javaType="String" />
+        </constructor>
+        <result property="licenseId" column="license_id" />
+        <result property="expiryTime" column="recovery_expiry_ts" />
+        <result property="membersBackupTime" column="members_backup_ts" />
+    </resultMap>
+</mapper>

@@ -3,6 +3,7 @@ package org.guard_jiang.chat.phase;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import line.thrift.ContentType;
 import line.thrift.Message;
+import org.apache.commons.lang3.Validate;
 import org.guard_jiang.Account;
 import org.guard_jiang.Guard;
 import org.guard_jiang.chat.ChatStatus;
@@ -12,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * This class represents a phase in during a chat.
@@ -81,16 +83,35 @@ public abstract class ChatPhase {
             @Nonnull ObjectNode returnData) throws IOException;
 
     public void onReceiveMessage(@Nonnull Message message) throws IOException {
-        if (!ContentType.NONE.equals(message.getContentType()) ||
-                message.getText() == null) {
-            return;
+        switch (message.getContentType()) {
+            case NONE:
+                String text = message.getText();
+                Validate.notNull(text);
+                onReceiveTextMessage(text);
+                break;
+            case CONTACT:
+                Map<String, String> meta = message.getContentMetadata();
+                Validate.notNull(meta, "No metadata in CONTACT message");
+                String contactId = meta.get("mid");
+                Validate.notNull(contactId, "No mid in CONTACT message");
+                onReceiveContactMessage(contactId);
+                break;
+            default:
+                onReceiveUnsupportedMessage();
+                break;
         }
-        String text = message.getText();
-        if (text == null) {
-            LOGGER.warn("Receive a message with type NONE, but no text. message: {}", message);
-            return;
-        }
-        onReceiveTextMessage(text);
+    }
+
+    private void onReceiveUnsupportedMessage() throws IOException {
+        sendTextMessage("不支援的輸入");
+    }
+
+    protected void onReceiveOtherMessage(@Nonnull Message message) throws IOException  {
+        onReceiveUnsupportedMessage();
+    }
+
+    protected void onReceiveContactMessage(@Nonnull String contactId) throws IOException {
+        onReceiveUnsupportedMessage();
     }
 
     /**
@@ -99,7 +120,9 @@ public abstract class ChatPhase {
      * @param text Message text.
      * @throws IOException IO error occurs.
      */
-    protected abstract void onReceiveTextMessage(@Nonnull String text) throws IOException;
+    protected void onReceiveTextMessage(@Nonnull String text) throws IOException {
+        onReceiveUnsupportedMessage();
+    }
 
     /**
      * Send text message to the LINE user.

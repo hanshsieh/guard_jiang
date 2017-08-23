@@ -5,10 +5,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import org.guard_jiang.Account
 import org.guard_jiang.GroupRole
 import org.guard_jiang.Guard
-import org.guard_jiang.GuardGroup
+import org.guard_jiang.Group
 import org.guard_jiang.License
 import org.guard_jiang.Role
-import org.guard_jiang.chat.AccountSelectChatPhase
 import org.guard_jiang.chat.ChatStatus
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -116,21 +115,21 @@ class RolesAddChatPhaseTest extends Specification {
             maxSupporters = 8
             return it
         }
-        def guardGroup = Mock(GuardGroup)
+        def guardGroup = Mock(Group)
         def existingRoles = [
             new GroupRole("group_role_id_1", groupId, "other_user_1", Role.DEFENDER, "my_license_key_2"),
             new GroupRole("group_role_id_2", groupId, "other_user_2", Role.SUPPORTER, "my_license_key_3"),
             new GroupRole("group_role_id_2", groupId, "my_guard_id_2", Role.ADMIN, "my_license_key_3")
         ]
         def accountSelPhaseData = objectMapper.valueToTree([
-            (AccountSelectChatPhase.ARG_ACCOUNT_IDS): [ // "my_guard_id_2" already has role, should be excluded
-                                                        "my_guard_id_1",
-                                                        "my_guard_id_3"
+            (AccountsSelectChatPhase.ARG_ACCOUNT_IDS): [ // "my_guard_id_2" already has role, should be excluded
+                                                         "my_guard_id_1",
+                                                         "my_guard_id_3"
             ],
-            (AccountSelectChatPhase.ARG_MIN_NUM)    : 1,
+            (AccountsSelectChatPhase.ARG_MIN_NUM)    : 1,
         ]) as ObjectNode
         if (maxAccounts >= 0) {
-            accountSelPhaseData.put(AccountSelectChatPhase.ARG_MAX_NUM, maxAccounts)
+            accountSelPhaseData.put(AccountsSelectChatPhase.ARG_MAX_NUM, maxAccounts)
         }
 
         when:
@@ -180,14 +179,14 @@ class RolesAddChatPhaseTest extends Specification {
         given:
         def selAccountIds = objectMapper.valueToTree(["my_account_1", "my_account_2"])
         def retData = objectMapper.valueToTree([
-            (AccountSelectChatPhase.RET_CANCELED): false,
-            (AccountSelectChatPhase.RET_SELECTED_ACCOUNT_IDS): selAccountIds
+            (AccountsSelectChatPhase.RET_CANCELED)            : false,
+            (AccountsSelectChatPhase.RET_SELECTED_ACCOUNT_IDS): selAccountIds
         ]) as ObjectNode
         def data = rolesAddChatPhase.data
         data.put(RolesAddChatPhase.ARG_ROLE_ID, role.id)
         data.put(RolesAddChatPhase.KEY_GROUP_ID, "test_group_id")
         data.put(RolesAddChatPhase.KEY_LICENSE_ID, "test_license_id")
-        def guardGroup = Mock(GuardGroup)
+        def guardGroup = Mock(Group)
 
         when:
         rolesAddChatPhase.onReturn(ChatStatus.ACCOUNTS_SELECT, retData)
@@ -232,6 +231,6 @@ class RolesAddChatPhaseTest extends Specification {
         retStatus                   | canceledKey
         ChatStatus.LICENSE_SELECT   | LicenseSelectChatPhase.RET_CANCELED
         ChatStatus.GROUP_SELECT     | GroupSelectChatPhase.RET_CANCELED
-        ChatStatus.ACCOUNTS_SELECT  | AccountSelectChatPhase.RET_CANCELED
+        ChatStatus.ACCOUNTS_SELECT  | AccountsSelectChatPhase.RET_CANCELED
     }
 }

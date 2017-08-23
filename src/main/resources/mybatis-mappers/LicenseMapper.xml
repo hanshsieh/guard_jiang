@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.guard_jiang.services.storage.sql.mappers.LicenseMapper">
+
+    <select id="getLicensesOfUser" resultMap="license">
+        SELECT
+            `id`,
+            `license_key`,
+            `user_id`,
+            `created_ts`,
+            `expired_ts`,
+            `max_defenders`,
+            `num_defenders`,
+            `max_supporters`,
+            `num_supporters`,
+            `max_admins`,
+            `num_admins`
+        FROM `license` WHERE
+            `user_id` = #{userId}
+        ORDER BY `created_ts` ASC
+    </select>
+
+    <select id="getLicense" resultMap="license">
+        SELECT
+            `id`,
+            `license_key`,
+            `user_id`,
+            `created_ts`,
+            `expired_ts`,
+            `max_defenders`,
+            `num_defenders`,
+            `max_supporters`,
+            `num_supporters`,
+            `max_admins`,
+            `num_admins`
+        FROM `license` WHERE
+        `id` = #{licenseId}
+        <if test="forUpdate">
+            FOR UPDATE
+        </if>
+    </select>
+
+    <insert id="createLicense" useGeneratedKeys="true" keyProperty="license.id">
+        INSERT INTO `license` (
+            `license_key`,
+            `user_id`,
+            `created_ts`,
+            `expired_ts`,
+            `max_defenders`,
+            `num_defenders`,
+            `max_supporters`,
+            `num_supporters`,
+            `max_admins`,
+            `num_admins`
+        ) VALUES (
+            #{license.key},
+            #{license.userId},
+            #{license.createTime},
+            #{license.expiredTime},
+            #{license.maxDefenders},
+            #{license.numDefenders},
+            #{license.maxSupporters},
+            #{license.numSupporters},
+            #{license.maxAdmins},
+            #{license.numAdmins}
+        )
+    </insert>
+
+    <update id="updateLicense">
+        UPDATE `license` SET
+            `expired_ts` = #{license.expiredTime},
+            `num_defenders` = #{license.numDefenders},
+            `num_supporters` = #{license.numSupporters},
+            `num_admins` = #{license.numAdmins},
+            `max_defenders` = #{license.maxDefenders},
+            `max_supporters` = #{license.maxSupporters},
+            `max_admins` = #{license.maxAdmins}
+        WHERE
+            `id` = #{license.id}
+    </update>
+
+    <update id="updateLicenseUsage">
+        UPDATE `license` SET
+            `num_defenders` = `num_defenders` + #{numDefendersAdd},
+            `num_supporters` = `num_supporters` + #{numSupportersAdd}
+            `num_admins` = `num_admins` + #{numAdminsAdd}
+        WHERE
+            `id` = #{licenseId}
+    </update>
+
+    <resultMap id="license" type="org.guard_jiang.services.storage.sql.records.LicenseRecord">
+        <result property="id" column="id" />
+        <result property="key" column="license_key" />
+        <result property="userId" column="user_id" />
+        <result property="createdTime" column="created_ts" />
+        <result property="expiredTime" column="expired_ts" />
+        <result property="maxDefenders" column="max_defenders" />
+        <result property="numDefenders" column="num_defenders" />
+        <result property="maxSupporters" column="max_supporters" />
+        <result property="numSupporters" column="num_supporters" />
+        <result property="maxAdmins" column="max_admins" />
+        <result property="numAdmins" column="num_admins" />
+    </resultMap>
+
+</mapper>

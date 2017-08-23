@@ -1,11 +1,10 @@
 package org.guard_jiang;
 
 import line.thrift.Contact;
-import line.thrift.Group;
 import line.thrift.Message;
 import line.thrift.Operation;
 import org.guard_jiang.chat.MessageManager;
-import org.guard_jiang.storage.GroupMetadata;
+import org.guard_jiang.services.storage.sql.GroupMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -132,7 +131,7 @@ class AccountManager {
         Set<String> contactsToAdd = new HashSet<>();
 
         long now = System.currentTimeMillis();
-        GuardGroup guardGroup = guard.getGroup(groupId);
+        Group guardGroup = guard.getGroup(groupId);
 
         List<GroupRole> roles = guardGroup.getRoles();
         Role myRole = getMyRoleFromAll(roles);
@@ -165,7 +164,7 @@ class AccountManager {
         return contactsToAdd;
     }
 
-    private Set<String> getGroupBlockedIds(@Nonnull GuardGroup guardGroup) throws IOException {
+    private Set<String> getGroupBlockedIds(@Nonnull Group guardGroup) throws IOException {
         return guardGroup.getBlockingRecords()
                 .stream()
                 .map(BlockingRecord::getUserId)
@@ -173,7 +172,7 @@ class AccountManager {
     }
 
     private void recoverGroupMembers(
-            @Nonnull GuardGroup guardGroup,
+            @Nonnull Group guardGroup,
             @Nonnull Set<String> groupMembers,
             @Nonnull Set<String> blockedMembers) throws IOException {
         GroupMetadata metadata = guardGroup.getMetadata();
@@ -193,7 +192,7 @@ class AccountManager {
     }
 
     private void backupGroupMembers(
-            @Nonnull GuardGroup guardGroup,
+            @Nonnull Group guardGroup,
             @Nonnull Set<String> groupMembers,
             @Nonnull Set<String> blockedMembers) throws IOException {
         String groupId = guardGroup.getId();
@@ -212,11 +211,11 @@ class AccountManager {
     }
 
     private void kickoutBlockedMembers(
-            @Nonnull GuardGroup guardGroup,
+            @Nonnull Group guardGroup,
             @Nonnull Set<String> memberIds,
             @Nonnull Set<String> blockedIds) throws IOException {
         String groupId = guardGroup.getId();
-        Group group = account.getGroup(groupId);
+        line.thrift.Group group = account.getGroup(groupId);
         if (group == null) {
             return;
         }
@@ -245,6 +244,7 @@ class AccountManager {
     }
 
     void onOperation(@Nonnull Operation operation) throws IOException {
+        LOGGER.debug("Receive operation: {}", operation);
         if (operation.getType() == null) {
             return;
         }
@@ -332,7 +332,7 @@ class AccountManager {
         }
 
         // Filter out the invitee's that are in the black list
-        GuardGroup group = guard.getGroup(groupId);
+        Group group = guard.getGroup(groupId);
         List<String> blockedInvitees = group.getBlockingRecords()
                 .stream()
                 .map(BlockingRecord::getUserId)
@@ -374,7 +374,7 @@ class AccountManager {
 
         LOGGER.info("I({}) have invited {} into group {}", myId, inviteeIds, groupId);
 
-        GuardGroup group = guard.getGroup(groupId);
+        Group group = guard.getGroup(groupId);
 
         GroupRole myGroupRole = group.getRoleOfUser(myId);
         if (myGroupRole == null) {
@@ -400,7 +400,7 @@ class AccountManager {
 
     private void onNotifiedLeaveGroup(@Nonnull String groupId, @Nonnull String userId) throws IOException {
         LOGGER.info("Another user {} has left group {}", userId, groupId);
-        GuardGroup guardGroup = guard.getGroup(groupId);
+        Group guardGroup = guard.getGroup(groupId);
 
         backupGroupMembers(
                 guardGroup,
@@ -429,7 +429,7 @@ class AccountManager {
 
         LOGGER.info("I({}) has accepted invitation into group {}", myId, groupId);
 
-        GuardGroup group = guard.getGroup(groupId);
+        Group group = guard.getGroup(groupId);
 
         // Get my role in the group
         Role myRole = getRoleFromGroupRole(group.getRoleOfUser(myId));
@@ -448,7 +448,7 @@ class AccountManager {
     }
 
     private Set<String> getGroupMemberIds(@Nonnull String groupId) throws IOException {
-        Group group = account.getGroup(groupId);
+        line.thrift.Group group = account.getGroup(groupId);
         if (group == null) {
             return Collections.emptySet();
         }
@@ -459,7 +459,7 @@ class AccountManager {
     }
 
     private void inviteDefenders(
-            @Nonnull GuardGroup group,
+            @Nonnull Group group,
             @Nonnull Set<String> memberIds) throws IOException {
         String groupId = group.getId();
 
@@ -482,7 +482,7 @@ class AccountManager {
 
     private void onNotifiedAcceptGroupInvitation(@Nonnull String groupId, @Nonnull String inviteeId)
             throws IOException {
-        GuardGroup group = guard.getGroup(groupId);
+        Group group = guard.getGroup(groupId);
         Set<String> blockIds = getGroupBlockedIds(group);
         if (blockIds.contains(inviteeId)) {
             account.kickOutFromGroup(groupId, inviteeId);
@@ -508,7 +508,7 @@ class AccountManager {
 
         LOGGER.info("User {} has kicked out users {} from group {}", removerId, removedIds, groupId);
 
-        GuardGroup group = guard.getGroup(groupId);
+        Group group = guard.getGroup(groupId);
 
         String myId = getId();
 

@@ -23,6 +23,13 @@
             <version>RELEASE</version>
         </dependency>
 
+        <!-- Converting from full-width char to half-width char -->
+        <dependency>
+            <groupId>com.ibm.icu</groupId>
+            <artifactId>icu4j</artifactId>
+            <version>59.1</version>
+        </dependency>
+
         <!-- Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>

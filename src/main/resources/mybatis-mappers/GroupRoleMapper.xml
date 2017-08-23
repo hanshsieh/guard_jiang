@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.guard_jiang.services.storage.sql.mappers.GroupRoleMapper">
+    <insert id="addGroupRole" useGeneratedKeys="true" keyProperty="groupRole.id">
+        INSERT INTO `group_role` (
+            `group_id`,
+            `user_id`,
+            `role`)
+        VALUES (
+            #{groupRole.groupId},
+            #{groupRole.userId},
+            #{groupRole.role}
+        )
+    </insert>
+
+    <delete id="removeGroupRole">
+        DELETE FROM `group_role` WHERE
+            `id` = #{id}
+    </delete>
+
+    <select id="getGroupRoles" resultMap="groupRole">
+        SELECT
+            `id`,
+            `group_id`,
+            `user_id`,
+            `role`
+        FROM `group_role`
+        WHERE `group_id` = #{groupId}
+        <if test="role != null">
+            AND `role` = #{role, jdbcType=TINYINT}
+        </if>
+        <if test="userId != null">
+            AND `user_id` = #{userId, jdbcType=VARCHAR}
+        </if>
+        <if test="forUpdate">
+            FOR UPDATE
+        </if>
+    </select>
+    <select id="getGroupRoleOfUser" resultMap="groupRole">
+        SELECT
+            `id`,
+            `group_id`,
+            `user_id`,
+            `role`
+        FROM `group_role`
+        WHERE
+            `group_id` = #{groupId} AND
+            `user_id` = #{userId}
+    </select>
+
+    <select id="getGroupsWithRolesCreatedByUser">
+        SELECT DISTINCT `group_role`.`group_id` AS `group_id`
+        FROM `group_role`, `license`
+        WHERE `license`.`user_id` = #{userId}
+        AND `group_role`.`license_id` = `license`.`id`
+    </select>
+
+    <resultMap id="groupRole" type="org.guard_jiang.services.storage.sql.records.GroupRoleRecord">
+        <constructor>
+            <idArg column="id" javaType="String"/>
+            <arg column="group_id" javaType="String" />
+            <arg column="user_id" javaType="String" />
+            <arg column="role" javaType="org.guard_jiang.Role" />
+        </constructor>
+    </resultMap>
+</mapper>

@@ -25,6 +25,7 @@ public class LicenseSelectChatPhase extends ChatPhase {
 
     private static final int TIME_ZONE_OFFSET_HOURS = 8;
     private static final int LICENSE_PREFIX_LEN = 5;
+    public static final String ARG_PROMPT = "prompt";
     protected static final String KEY_LICENSE_IDS = "licenses";
 
     /**
@@ -39,6 +40,8 @@ public class LicenseSelectChatPhase extends ChatPhase {
      */
     public static final String RET_LICENSE_ID = "licenseId";
 
+    private String prompt = null;
+
     public LicenseSelectChatPhase(
             @Nonnull Guard guard,
             @Nonnull Account account,
@@ -49,13 +52,15 @@ public class LicenseSelectChatPhase extends ChatPhase {
 
     @Override
     public void onEnter() throws IOException {
+        parseData();
         Guard guard = getGuard();
         List<License> licenses = guard.getLicensesOfUser(getUserId());
         if(licenses.isEmpty()) {
-            sendTextMessage("您現在還沒有任何金鑰，請先回到主選單建立一個");
+            sendTextMessage("您現在還沒有任何金鑰，請先建立一個");
             leavePhase(prepareReturnData(null));
             return;
         }
+        sendTextMessage(prompt);
         sendTextMessage("請選擇一個金鑰(請輸入數字或\"?\"返回): ");
         ObjectNode data = getData();
         ArrayNode licensesNode = data.arrayNode();
@@ -71,12 +76,14 @@ public class LicenseSelectChatPhase extends ChatPhase {
                     "  key: %s...\n" +
                     "  建立時間: %s\n" +
                     "  可用defender: %d\n" +
-                    "  可用supporter: %d",
+                    "  可用supporter: %d\n" +
+                    "  可用admin: %d",
                     index,
                     licensePrefix,
                     createTimeStr,
                     license.getMaxDefenders() - license.getNumDefenders(),
-                    license.getMaxSupporters() - license.getNumSupporters()));
+                    license.getMaxSupporters() - license.getNumSupporters(),
+                    license.getMaxAdmins() - license.getNumAdmins()));
             licensesNode.add(license.getId());
         }
         data.set(KEY_LICENSE_IDS, licensesNode);
@@ -112,6 +119,11 @@ public class LicenseSelectChatPhase extends ChatPhase {
 
         String licenseId = licenseIdNode.asText();
         leavePhase(prepareReturnData(licenseId));
+    }
+
+    private void parseData() {
+        ObjectNode data = getData();
+        prompt = data.get(ARG_PROMPT).asText();
     }
 
     @Nonnull

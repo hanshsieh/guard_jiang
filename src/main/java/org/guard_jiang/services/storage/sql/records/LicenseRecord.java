@@ -1,4 +1,4 @@
-package org.guard_jiang;
+package org.guard_jiang.services.storage.sql.records;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -8,16 +8,13 @@ import java.time.Instant;
  * A license gives a user the right to assign some guard accounts as defenders or
  * supporters.
  */
-public class License {
-
-    private static final int CHUNK_SIZE = 5;
-    private static final char DELIMITER = '-';
+public class LicenseRecord {
 
     private String id;
-    private final String key;
-    private final String userId;
-    private final Instant createTime;
-    private Instant expiredTime = null;
+    private String key;
+    private String userId;
+    private Instant createdTime;
+    private Instant expiredTime;
     private int maxDefenders = 0;
     private int maxSupporters = 0;
     private int numDefenders = 0;
@@ -25,48 +22,44 @@ public class License {
     private int maxAdmins = 0;
     private int numAdmins = 0;
 
-    public License(
-            @Nullable String id,
-            @Nonnull String key,
-            @Nonnull String userId,
-            @Nonnull Instant createTime) {
-        this.id = id;
-        this.key = key;
-        this.userId = userId;
-        this.createTime = createTime;
-    }
-
-    @Nullable
     public String getId() {
         return id;
     }
 
-    public void setId(@Nullable String id) {
+    public void setId(String id) {
         this.id = id;
     }
 
-    @Nonnull
-    public Instant getCreateTime() {
-        return createTime;
-    }
-
-    @Nullable
-    public Instant getExpiredTime() {
-        return expiredTime;
-    }
-
-    public void setExpiredTime(@Nullable Instant expiredTime) {
-        this.expiredTime = expiredTime;
-    }
-
-    @Nonnull
     public String getKey() {
         return key;
     }
 
-    @Nonnull
+    public void setKey(String key) {
+        this.key = key;
+    }
+
     public String getUserId() {
         return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
+
+    public Instant getCreatedTime() {
+        return createdTime;
+    }
+
+    public void setCreatedTime(Instant createdTime) {
+        this.createdTime = createdTime;
+    }
+
+    public Instant getExpiredTime() {
+        return expiredTime;
+    }
+
+    public void setExpiredTime(Instant expiredTime) {
+        this.expiredTime = expiredTime;
     }
 
     public int getMaxDefenders() {
@@ -115,17 +108,5 @@ public class License {
 
     public void setNumAdmins(int numAdmins) {
         this.numAdmins = numAdmins;
-    }
-
-    @Nonnull
-    public String getReadableKey() {
-        StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < key.length(); ++i) {
-            if (i > 0 && (i % CHUNK_SIZE) == 0) {
-                builder.append(DELIMITER);
-            }
-            builder.append(key.charAt(i));
-        }
-        return builder.toString();
     }
 }

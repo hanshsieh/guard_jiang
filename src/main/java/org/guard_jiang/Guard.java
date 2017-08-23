@@ -3,9 +3,11 @@ package org.guard_jiang;
 import com.typesafe.config.Config;
 import org.guard_jiang.chat.Chat;
 import org.guard_jiang.chat.ChatEnv;
-import org.guard_jiang.storage.MyBatisSqlSessionFactory;
-import org.guard_jiang.storage.SqlStorage;
-import org.guard_jiang.storage.Storage;
+import org.guard_jiang.exception.LoginFailureException;
+import org.guard_jiang.services.license.LicenseKeyService;
+import org.guard_jiang.services.storage.sql.SqlSessionFactory;
+import org.guard_jiang.services.storage.sql.SqlStorage;
+import org.guard_jiang.services.storage.Storage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,13 +22,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Created by someone on 1/31/2017.
+ * The core of the Guard Jiang service.
  */
 public class Guard {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Guard.class);
     private static final int TRIAL_MAX_DEFENDERS = 2;
     private static final int TRIAL_MAX_SUPPORTERS = 1;
+    private static final int TRIAL_MAX_ADMINS = 5;
 
     private final Map<String, AccountManager> accountMgrs = new HashMap<>();
     private boolean started = false;
@@ -34,7 +37,7 @@ public class Guard {
     private final LicenseKeyService licenseKeyService;
 
     public Guard(@Nonnull Config config) throws IOException {
-        MyBatisSqlSessionFactory sessionFactory = new MyBatisSqlSessionFactory(
+        SqlSessionFactory sessionFactory = new SqlSessionFactory(
                 config.getConfig("sqlReader"),
                 config.getConfig("sqlWriter")
         );
@@ -70,37 +73,31 @@ public class Guard {
         if (!isStarted()) {
             throw new IllegalStateException("Not yet started");
         }
-        List<AccountData> accountsData = storage.getGuardAccounts(true);
-        Set<String> accountIds = accountsData
+        List<Account> newAccounts = storage.getGuardAccounts().get();
+        Set<String> newAccountIds = newAccounts
                 .stream()
-                .map(AccountData::getMid)
+                .map(Account::getMid)
                 .collect(Collectors.toSet());
         Iterator<Map.Entry<String, AccountManager>> itr = accountMgrs.entrySet().iterator();
         while (itr.hasNext()) {
             Map.Entry<String, AccountManager> entry = itr.next();
-            if (!accountIds.contains(entry.getKey())) {
+            if (!newAccountIds.contains(entry.getKey())) {
                 entry.getValue().stop();
                 itr.remove();
             }
         }
-        for (AccountData accountData : accountsData) {
-            String mid = accountData.getMid();
+        for (Account newAccount : newAccounts) {
+            String mid = newAccount.getMid();
             if (accountMgrs.containsKey(mid)) {
                 continue;
             }
-            Credential credential = accountData.getCredential();
-            assert credential != null;
-            Account account = new Account(credential);
             try {
-                account.login();
+                newAccount.login();
             } catch (Exception ex) {
                 LOGGER.error("Fail to login to account {}. Skip it.", mid, ex);
                 continue;
             }
-            accountMgrs.put(account.getMid(), new AccountManager(this, account));
-            credential.setAuthToken(account.getAuthToken());
-            credential.setCertificate(account.getCertificate());
-            storage.updateGuardAccount(accountData);
+            accountMgrs.put(newAccount.getMid(), new AccountManager(this, newAccount));
         }
 
         for (AccountManager accountManager : accountMgrs.values()) {
@@ -146,15 +143,26 @@ public class Guard {
     }
 
     public Set<String> getGuardIds() throws IOException {
-        return storage.getGuardAccounts(false)
+        return storage.getGuardAccounts().get()
                 .stream()
-                .map(AccountData::getMid)
+                .map(Account::getMid)
                 .collect(Collectors.toSet());
     }
 
     @Nonnull
-    public GuardGroup getGroup(@Nonnull String groupId) throws IOException {
-        return new GuardGroup(storage, groupId);
+    public Group getGroup(@Nonnull String groupId) throws IOException {
+        return new Group(storage, groupId);
+    }
+
+    /**
+     * Get the set of ID's of groups which a given user have created a role inside.
+     *
+     * @param userId User's LINE mid.
+     * @return Set of group ID's.
+     */
+    @Nonnull
+    public Set<String> getGroupsWithRolesCreatedByUser(@Nonnull String userId) {
+        return storage.getGroupsWithRolesCreatedByUser(userId);
     }
 
     @Nonnull
@@ -177,6 +185,7 @@ public class Guard {
                 Instant.now());
         license.setMaxDefenders(TRIAL_MAX_DEFENDERS);
         license.setMaxSupporters(TRIAL_MAX_SUPPORTERS);
+        license.setMaxAdmins(TRIAL_MAX_ADMINS);
         storage.createLicense(license);
         return license;
     }

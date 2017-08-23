@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.guard_jiang.services.storage.sql.mappers.SqlStorageMapper">
+    <select id="getGuardAccounts" resultMap="guardAccount">
+        SELECT
+            `id`,
+            `partition`,
+            `email`,
+            `password`,
+            `certificate`,
+            `auth_token`
+        FROM `guard_account`
+        WHERE
+            `partition` = #{partition}
+    </select>
+
+    <insert id="createGuardAccount">
+        INSERT INTO `guard_account` (
+            `id`,
+            `partition`,
+            `email`,
+            `password`,
+            `certificate`,
+            `auth_token`)
+        VALUES(
+            #{account.mid},
+            #{account.partition},
+            #{account.credential.email, jdbcType=VARCHAR},
+            #{account.credential.password, jdbcType=VARCHAR},
+            #{account.credential.certificate, jdbcType=VARCHAR},
+            #{account.credential.authToken, jdbcType=VARCHAR}
+        )
+    </insert>
+
+    <update id="updateGuardAccount">
+        UPDATE `guard_account` SET
+        `partition` = #{account.partition},
+        `email` = #{account.credential.email, jdbcType=VARCHAR},
+        `password` = #{account.credential.password, jdbcType=VARCHAR},
+        `certificate` = #{account.credential.certificate, jdbcType=VARCHAR},
+        `auth_token` = #{account.credential.authToken, jdbcType=VARCHAR}
+        WHERE
+        `id` = #{account.mid}
+    </update>
+
+    <update id="updateGuardAccount">
+        UPDATE `guard_account` SET
+            `partition` = #{account.partition}
+        <if test="account.credential != null">
+            ,`email` = #{account.credential.email, jdbcType=VARCHAR},
+            `password` = #{account.credential.password, jdbcType=VARCHAR},
+            `certificate` = #{account.credential.certificate, jdbcType=VARCHAR},
+            `auth_token` = #{account.credential.authToken, jdbcType=VARCHAR}
+        </if>
+        WHERE
+            `id` = #{account.mid}
+    </update>
+
+    <resultMap id="guardAccount" type="org.guard_jiang.services.storage.sql.records.AccountRecord">
+        <constructor>
+            <idArg column="id" javaType="String"/>
+            <arg column="partition" javaType="int"/>
+        </constructor>
+        <association property="credential" resultMap="credential" />
+    </resultMap>
+
+    <resultMap id="credential" type="org.guard_jiang.services.storage.sql.records.CredentialRecord">
+        <result property="email" column="email" />
+        <result property="password" column="password" />
+        <result property="certificate" column="certificate" />
+        <result property="authToken" column="auth_token" />
+    </resultMap>
+
+</mapper>

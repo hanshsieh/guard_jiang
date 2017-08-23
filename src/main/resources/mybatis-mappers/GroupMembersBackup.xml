@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.guard_jiang.services.storage.sql.mappers.GroupMembersBackupMapper">
+    <select id="getGroupMembersBackup" resultType="String">
+        SELECT
+            `user_id`
+        FROM `group_members_backup`
+        WHERE
+            `group_id` = #{groupId}
+    </select>
+
+    <insert id="addGroupMembersBackup">
+        REPLACE INTO `group_members_backup` (
+            `group_id`,
+            `user_id`)
+        VALUES (
+            #{groupId},
+            #{userId}
+        )
+    </insert>
+
+    <delete id="clearGroupMemberBackup">
+        DELETE FROM `group_members_backup`
+        WHERE
+            `group_id` = #{groupId}
+    </delete>
+</mapper>

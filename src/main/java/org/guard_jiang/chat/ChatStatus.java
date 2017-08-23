@@ -107,7 +107,19 @@ public enum ChatStatus {
                 @Nonnull Account account,
                 @Nonnull String userId,
                 @Nonnull ObjectNode data) {
-            return new AccountSelectChatPhase(
+            return new AccountsSelectChatPhase(
+                    guard, account, userId, data);
+        }
+    },
+    ACCOUNTS_INPUT(9) {
+        @Nonnull
+        @Override
+        public ChatPhase createChatPhase(
+                @Nonnull Guard guard,
+                @Nonnull Account account,
+                @Nonnull String userId,
+                @Nonnull ObjectNode data) {
+            return new AccountsInputChatPhase(
                     guard, account, userId, data);
         }
     },

@@ -11,19 +11,21 @@ import io.cslinmiso.line.model.LineClient;
 import line.thrift.*;
 import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransportException;
+import org.guard_jiang.exception.LoginFailureException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Created by cahsieh on 1/26/17.
  */
-public class Account {
+public abstract class Account {
     private static final Logger LOGGER = LoggerFactory.getLogger(Account.class);
     private final LineClient client;
-    private String mid;
+    private final String mid;
     private Instant authTokenLastRefreshTime = null;
-    private final Credential credential;
-    public Account(@Nonnull Credential credential) throws IOException {
+    private Credential credential;
+    public Account(@Nonnull String mid, @Nonnull Credential credential) {
+        this.mid = mid;
         this.client = new LineClient();
         this.credential = credential;
     }
@@ -52,9 +54,8 @@ public class Account {
                         null
                 );
             }
-            credential.setAuthToken(client.getAuthToken());
-            mid = client.getProfile().getMid();
-            authTokenLastRefreshTime = Instant.now();
+            checkClientMid();
+            reloadAuthTokenFromClient();
         } catch (TException ex) {
             throw new LoginFailureException("Fail to login with email and password", ex);
         } catch (Exception ex) {
@@ -62,11 +63,31 @@ public class Account {
         }
     }
 
+    private void checkClientMid() throws LoginFailureException, IOException {
+        String actualMid;
+        try {
+            actualMid = client.getProfile().getMid();
+        } catch (Exception ex) {
+            throw new IOException("Fail to get profile", ex);
+        }
+        if (!mid.equals(actualMid)) {
+            throw new LoginFailureException(
+                    "Illegal mid is obtained. expected: " + mid + ", actual: " + actualMid);
+        }
+    }
+
+    private void reloadAuthTokenFromClient() throws LoginFailureException, IOException {
+        credential = credential.update()
+                .withAuthToken(client.getAuthToken())
+                .withCertificate(credential.getCertificate())
+                .withEmail(credential.getEmail())
+                .withPassword(credential.getPassword())
+                .update();
+        authTokenLastRefreshTime = Instant.now();
+    }
+
     @Nonnull
     public String getMid() {
-        if (mid == null) {
-            throw new IllegalStateException("Not yet logged in");
-        }
         return mid;
     }
 
@@ -236,7 +257,7 @@ public class Account {
             LOGGER.debug("User {} is sending message to {}", mid, message.getToId());
             client.getApi().sendMessage(0, message);
         } catch (Exception ex) {
-            throw new IOException("Fail to send message to " + message.getToId());
+            throw new IOException("Fail to send message to " + message.getToId(), ex);
         }
     }
 
@@ -283,14 +304,9 @@ public class Account {
         return authTokenLastRefreshTime;
     }
 
-    public void refreshAuthToken() throws IOException {
-        try {
-            LOGGER.info("Refreshing auth token of user {}", mid);
-            credential.setAuthToken(null);
-            login();
-        } catch (Exception ex) {
-            throw new IOException("Fail to refresh auth token", ex);
-        }
+    public void refreshAuthToken() throws LoginFailureException, IOException {
+        LOGGER.info("Refreshing auth token of user {}", mid);
+        login();
     }
 
     @Nonnull
@@ -300,6 +316,20 @@ public class Account {
         } catch (TException ex) {
             // TODO handle not found case
             throw new IOException("Fail to find group by ticket", ex);
+        }
+    }
+
+    @Nullable
+    public Contact findAndAddContactById(@Nonnull String mid) throws IOException {
+        try {
+            Map<String, Contact> contacts = client.getApi().findAndAddContactsByMid(0, mid);
+            Contact contact = contacts.get(mid);
+            if (contact == null) {
+                return null;
+            }
+            return contact;
+        } catch (TException ex) {
+            throw new IOException("Fail to find contact by ID " + mid, ex);
         }
     }
 }

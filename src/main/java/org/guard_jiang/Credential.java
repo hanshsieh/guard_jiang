@@ -1,47 +1,26 @@
 package org.guard_jiang;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import io.cslinmiso.line.model.LoginCallback;
 
 /**
  * Created by cahsieh on 1/26/17.
  */
-public class Credential {
-    private String email;
-    private String password;
-    private String certificate;
-    private String authToken;
+public interface Credential {
+    @Nonnull
+    String getEmail();
 
-    public String getEmail() {
-        return email;
-    }
+    @Nonnull
+    String getPassword();
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
+    @Nonnull
+    String getCertificate();
 
-    public String getPassword() {
-        return password;
-    }
+    @Nullable
+    String getAuthToken();
 
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public String getCertificate() {
-        return certificate;
-    }
-
-    public void setCertificate(String certificate) {
-        this.certificate = certificate;
-    }
-
-    public String getAuthToken() {
-        return authToken;
-    }
-
-    public void setAuthToken(String authToken) {
-        this.authToken = authToken;
-    }
+    @Nonnull
+    CredentialUpdater update() throws IOException;
 }

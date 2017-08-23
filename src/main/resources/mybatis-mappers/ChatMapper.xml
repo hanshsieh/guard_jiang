@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.guard_jiang.services.storage.sql.mappers.ChatMapper">
+
+    <select id="getChat" resultMap="chat">
+        SELECT
+        `id`,
+        `guard_id`,
+        `user_id`,
+        `env_type`,
+        `env_id`,
+        `update_ts`,
+        `stack`
+        FROM `chat` WHERE
+        `guard_id` = #{guardId} and
+        `user_id` = #{userId} and
+        `env_type` = #{chatEnv.type} and
+        `env_id` = #{chatEnv.id, javaType=String}
+    </select>
+
+    <insert id="setChat" useGeneratedKeys="true" keyProperty="chat.id">
+        REPLACE INTO `chat` (
+        `guard_id`,
+        `user_id`,
+        `env_type`,
+        `env_id`,
+        `stack`,
+        `update_ts`)
+        VALUES (
+        #{chat.guardId},
+        #{chat.userId},
+        #{chat.chatEnv.type},
+        #{chat.chatEnv.id, javaType=String},
+        #{chat.stack, typeHandler=org.guard_jiang.services.storage.ChatStackTypeHandler},
+        #{chat.updateTime}
+        )
+    </insert>
+
+    <resultMap id="chat" type="org.guard_jiang.chat.Chat">
+        <constructor>
+            <idArg column="id" javaType="_long" />
+            <arg column="guard_id" javaType="String" />
+            <arg column="user_id" javaType="String" />
+            <arg javaType="org.guard_jiang.chat.ChatEnv" resultMap="chatEnv" />
+            <arg column="stack"
+                 javaType="java.util.Deque"
+                 typeHandler="org.guard_jiang.services.storage.sql.type_handlers.ChatStackTypeHandler" />
+            <arg column="update_ts" javaType="java.time.Instant" />
+        </constructor>
+    </resultMap>
+
+    <resultMap id="chatEnv" type="org.guard_jiang.chat.ChatEnv">
+        <constructor>
+            <idArg column="env_type" javaType="org.guard_jiang.chat.ChatEnvType" />
+            <idArg column="env_id" javaType="String" />
+        </constructor>
+    </resultMap>
+
+</mapper>

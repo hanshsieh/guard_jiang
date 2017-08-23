@@ -17,15 +17,15 @@
         <setting name="autoMappingBehavior" value="NONE" />
     </settings>
     <typeHandlers>
-        <typeHandler handler="org.guard_jiang.storage.RoleTypeHandler" javaType="org.guard_jiang.Role"/>
-        <typeHandler handler="org.guard_jiang.storage.InstantTypeHandler" javaType="java.time.Instant"/>
-        <typeHandler handler="org.guard_jiang.storage.ChatStatusTypeHandler" javaType="org.guard_jiang.chat.ChatStatus"/>
-        <typeHandler handler="org.guard_jiang.storage.MemberTypeTypeHandler" javaType="org.guard_jiang.chat.ChatEnvType"/>
+        <typeHandler handler="org.guard_jiang.services.storage.sql.type_handlers.RoleTypeHandler" javaType="org.guard_jiang.Role"/>
+        <typeHandler handler="org.guard_jiang.services.storage.sql.type_handlers.InstantTypeHandler" javaType="java.time.Instant"/>
+        <typeHandler handler="org.guard_jiang.services.storage.sql.type_handlers.ChatStatusTypeHandler" javaType="org.guard_jiang.chat.ChatStatus"/>
+        <typeHandler handler="org.guard_jiang.services.storage.sql.type_handlers.MemberTypeTypeHandler" javaType="org.guard_jiang.chat.ChatEnvType"/>
     </typeHandlers>
     <environments default="development">
         <environment id="development">
             <transactionManager type="JDBC"/>
-            <dataSource type="org.guard_jiang.storage.HikariDataSourceFactory">
+            <dataSource type="org.guard_jiang.services.storage.sql.HikariDataSourceFactory">
                 <!-- we use host, port, path to construct our url. -->
                 <property name="jdbcUrl" value="${url}"/>
                 <!-- login username -->

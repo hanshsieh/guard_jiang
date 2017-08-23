@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.guard_jiang.services.storage.sql.mappers.GroupRoleMapper">
+
+    <select id="getBlockingRecords" resultMap="groupBlockingRecord">
+        SELECT
+            `id`,
+            `group_id`,
+            `user_id`,
+            `expiry_ts`
+        FROM `group_blocking_record`
+        WHERE group_id = #{groupId}
+        <if test="nowTime != null">
+            AND (`expiry_ts` = NULL OR `expiry_ts` > #{nowTime, jdbcType=BIGINT})
+        </if>
+    </select>
+
+    <insert id="putBlockingRecord">
+        REPLACE INTO `group_blocking_record` (
+            `group_id`,
+            `user_id`,
+            `expiry_ts`)
+        VALUES (
+            #{record.groupId},
+            #{record.userId},
+            #{record.expiredTime, jdbcType=BIGINT}
+        )
+    </insert>
+
+    <delete id="removeGroupBlockingRecord">
+        DELETE FROM `group_blocking_record`
+        WHERE
+            `group_id` = #{groupId} AND
+            `user_id` = #{userId}
+    </delete>
+
+
+    <resultMap id="groupBlockingRecords" type="org.guard_jiang.BlockingRecord">
+        <constructor>
+            <idArg column="group_id" javaType="String" />
+            <idArg column="user_id" javaType="String" />
+            <arg column="expiry_ts" javaType="java.time.Instant" />
+        </constructor>
+    </resultMap>
+</mapper>
