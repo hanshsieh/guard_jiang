@@ -14,18 +14,18 @@ import java.io.IOException;
  */
 public class SqlCredential implements Credential {
 
-    private final SqlAccount sqlAccount;
     private final AccountRecord accountRecord;
+    private final SqlSessionFactory sqlSessionFactory;
 
     public SqlCredential(
-            @Nonnull SqlAccount sqlAccount,
+            @Nonnull SqlSessionFactory sqlSessionFactory,
             @Nonnull AccountRecord accountRecord) {
         Validate.notNull(accountRecord.getEmail(), "Email cannot be null");
         Validate.notNull(accountRecord.getPassword(), "Password cannot be null");
         Validate.notNull(accountRecord.getCertificate(), "Certificate cannot be null");
         Validate.notNull(accountRecord.getId(), "ID cannot be null");
         Validate.notNull(accountRecord.getPartition() >= 0, "Partition must be specified");
-        this.sqlAccount = sqlAccount;
+        this.sqlSessionFactory = sqlSessionFactory;
         this.accountRecord = accountRecord;
     }
 
@@ -59,6 +59,6 @@ public class SqlCredential implements Credential {
     @Nonnull
     @Override
     public CredentialUpdater update() throws IOException {
-        return new SqlCredentialUpdater(sqlAccount, new AccountRecord(accountRecord));
+        return new SqlCredentialUpdater(sqlSessionFactory, new AccountRecord(accountRecord));
     }
 }

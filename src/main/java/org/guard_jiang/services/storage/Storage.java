@@ -41,7 +41,7 @@ public interface Storage {
      * @return Set of group ID's.
      */
     @Nonnull
-    Set<String> getGroupsWithRolesCreatedByUser(@Nonnull String userId);
+    GroupIdsGetter getGroupIds();
 
     @Nonnull
     Collection<BlockingRecord> getGroupBlockingRecords(@Nonnull String groupId) throws IOException;

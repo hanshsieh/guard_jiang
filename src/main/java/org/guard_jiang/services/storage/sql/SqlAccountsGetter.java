@@ -4,7 +4,7 @@ import org.apache.commons.lang3.Validate;
 import org.apache.ibatis.session.SqlSession;
 import org.guard_jiang.Account;
 import org.guard_jiang.AccountsGetter;
-import org.guard_jiang.services.storage.sql.mappers.SqlStorageMapper;
+import org.guard_jiang.services.storage.sql.mappers.GuardAccountMapper;
 import org.guard_jiang.services.storage.sql.records.AccountRecord;
 
 import javax.annotation.Nonnull;
@@ -29,16 +29,16 @@ public class SqlAccountsGetter implements AccountsGetter {
     @Override
     public List<Account> get() throws IOException {
         try (SqlSession session = sqlSessionFactory.openReadSession()) {
-            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
+            GuardAccountMapper mapper = session.getMapper(GuardAccountMapper.class);
             List<AccountRecord> accountRecords = mapper.getGuardAccounts(partition);
             return accountRecords.stream()
                     .map(accountRecord -> {
                         Validate.notNull(accountRecord.getId());
-                        Validate.notNull(accountRecord.getCredential());
                         return new SqlAccount(
                                 accountRecord.getId(),
                                 accountRecord.getPartition(),
-                                new SqlCredential(accountRecord.getCredential()));
+                                new SqlCredential(sqlSessionFactory, accountRecord),
+                                sqlSessionFactory);
                     })
                     .collect(Collectors.toList());
         }

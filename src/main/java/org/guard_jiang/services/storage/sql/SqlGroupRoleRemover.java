@@ -6,6 +6,7 @@ import org.guard_jiang.GroupRole;
 import org.guard_jiang.GroupRoleRemover;
 import org.guard_jiang.Role;
 import org.guard_jiang.services.storage.sql.mappers.GroupRoleMapper;
+import org.guard_jiang.services.storage.sql.mappers.LicenseMapper;
 import org.guard_jiang.services.storage.sql.mappers.SqlStorageMapper;
 import org.guard_jiang.services.storage.sql.records.GroupRoleRecord;
 
@@ -44,8 +45,8 @@ public class SqlGroupRoleRemover implements GroupRoleRemover {
     @Override
     public boolean remove() throws IOException {
         try (SqlSession session = sqlSessionFactory.openWriteSession()) {
-            GroupRoleMapper mapper = session.getMapper(GroupRoleMapper.class);
-            List<GroupRoleRecord> groupRoles = mapper.getGroupRoles(groupId, null, userId, true);
+            GroupRoleMapper groupRoleMapper = session.getMapper(GroupRoleMapper.class);
+            List<GroupRoleRecord> groupRoles = groupRoleMapper.getGroupRoles(groupId, null, userId, true);
             if (groupRoles.isEmpty()) {
                 return false;
             }
@@ -57,11 +58,20 @@ public class SqlGroupRoleRemover implements GroupRoleRemover {
 
             calLicenseUsageUpdateForRole(role);
 
-            mapper.updateLicenseUsage(groupRole.getLicenseId(), numDefendersAdd, numSupportersAdd, numAdminsAdd);
-            mapper.removeGroupRole(groupRole.getId());
+            updateLicenseUsage(groupRole.getLicenseId(), session);
+            groupRoleMapper.removeGroupRole(groupRole.getId());
             session.commit();
         }
         return true;
+    }
+
+    private void updateLicenseUsage(long licenseId, @Nonnull SqlSession session) {
+        LicenseMapper licenseMapper = session.getMapper(LicenseMapper.class);
+        licenseMapper.updateLicenseUsage(
+                licenseId,
+                numDefendersAdd,
+                numSupportersAdd,
+                numAdminsAdd);
     }
 
     private void calLicenseUsageUpdateForRole(@Nonnull Role role) {

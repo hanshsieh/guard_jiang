@@ -8,6 +8,8 @@ import org.guard_jiang.GroupRoleCreator;
 import org.guard_jiang.License;
 import org.guard_jiang.Role;
 import org.guard_jiang.exception.ConflictException;
+import org.guard_jiang.services.storage.sql.mappers.GroupRoleMapper;
+import org.guard_jiang.services.storage.sql.mappers.LicenseMapper;
 import org.guard_jiang.services.storage.sql.mappers.SqlStorageMapper;
 import org.guard_jiang.services.storage.sql.records.GroupRoleRecord;
 import org.guard_jiang.services.storage.sql.records.LicenseRecord;
@@ -61,12 +63,15 @@ public class SqlGroupRoleCreator implements GroupRoleCreator {
     @Nonnull
     @Override
     public GroupRole create() throws IllegalArgumentException, ConflictException, IOException {
+        validateState();
         calLicenseUsageUpdate();
         try (SqlSession session = sqlSessionFactory.openWriteSession()) {
-            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            LicenseRecord license = getLicense(mapper);
-            updateLicenseUsage(mapper, license);
-            mapper.addGroupRole(groupRoleRecord);
+            LicenseMapper licenseMapper = session.getMapper(LicenseMapper.class);
+            LicenseRecord license = getLicense(licenseMapper);
+            updateLicenseUsage(licenseMapper, license);
+
+            GroupRoleMapper groupRoleMapper = session.getMapper(GroupRoleMapper.class);
+            groupRoleMapper.addGroupRole(groupRoleRecord);
 
             // The ID of the group role should have been set by MyBatis
             Validate.notNull(groupRoleRecord.getId());
@@ -79,8 +84,15 @@ public class SqlGroupRoleCreator implements GroupRoleCreator {
         return new SqlGroupRole(groupRoleRecord);
     }
 
+    private void validateState() {
+        Validate.notNull(groupRoleRecord.getLicenseId(), "License ID must be specified");
+        Validate.notNull(groupRoleRecord.getGroupId(), "Group ID must be specified");
+        Validate.notNull(groupRoleRecord.getUserId(), "User ID must be specified");
+        Validate.notNull(groupRoleRecord.getRole(), "Role must be specified");
+    }
+
     @Nonnull
-    private LicenseRecord getLicense(@Nonnull SqlStorageMapper mapper) {
+    private LicenseRecord getLicense(@Nonnull LicenseMapper mapper) {
         LicenseRecord license = mapper.getLicense(groupRoleRecord.getLicenseId(), true);
         if (license == null) {
             throw new IllegalArgumentException("No license is found with ID " + groupRoleRecord.getLicenseId());
@@ -110,17 +122,14 @@ public class SqlGroupRoleCreator implements GroupRoleCreator {
         }
     }
 
-    private void updateLicenseUsage(@Nonnull SqlStorageMapper mapper, @Nonnull LicenseRecord license) {
-        license.setNumDefenders(license.getNumDefenders() + defendersAdd);
-        license.setNumSupporters(license.getNumSupporters() + supportersAdd);
-        license.setNumAdmins(license.getNumAdmins() + adminsAdd);
-
-        Validate.isTrue(license.getNumDefenders() > license.getMaxDefenders(),
+    private void updateLicenseUsage(@Nonnull LicenseMapper mapper, @Nonnull LicenseRecord license) {
+        Validate.isTrue(license.getNumDefenders() + defendersAdd > license.getMaxDefenders(),
                 "Exceeding maximum number of defenders of the license");
-        Validate.isTrue(license.getMaxSupporters() < license.getNumSupporters(),
+        Validate.isTrue(license.getMaxSupporters() + supportersAdd < license.getNumSupporters(),
                 "Exceeding maximum number of supporters of the license");
-        Validate.isTrue(license.getMaxAdmins() < license.getNumAdmins(),
+        Validate.isTrue(license.getMaxAdmins() + adminsAdd < license.getNumAdmins(),
                 "Exceeding maximum number of admins of the license");
-        mapper.updateLicense(license);
+        Validate.notNull(license.getId());
+        mapper.updateLicenseUsage(license.getId(), defendersAdd, supportersAdd, adminsAdd);
     }
 }

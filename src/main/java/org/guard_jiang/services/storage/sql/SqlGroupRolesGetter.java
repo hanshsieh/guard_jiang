@@ -6,7 +6,6 @@ import org.guard_jiang.GroupRole;
 import org.guard_jiang.GroupRolesGetter;
 import org.guard_jiang.Role;
 import org.guard_jiang.services.storage.sql.mappers.GroupRoleMapper;
-import org.guard_jiang.services.storage.sql.mappers.SqlStorageMapper;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;

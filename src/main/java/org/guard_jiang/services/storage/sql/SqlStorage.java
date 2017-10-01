@@ -9,7 +9,6 @@ import org.apache.ibatis.session.SqlSession;
 import org.guard_jiang.AccountCreator;
 import org.guard_jiang.services.storage.Storage;
 import org.guard_jiang.services.storage.sql.mappers.SqlStorageMapper;
-import org.guard_jiang.services.storage.sql.records.AccountRecord;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -47,23 +46,22 @@ public class SqlStorage implements Storage {
         return new SqlGroupRolesGetter(sessionFactory);
     }
 
+    @Nonnull
     @Override
     public GroupRoleCreator createGroupRole() {
         return new SqlGroupRoleCreator(sessionFactory);
     }
 
     @Nonnull
+    @Override
     public GroupRoleRemover removeGroupRole() {
         return new SqlGroupRoleRemover(sessionFactory);
     }
 
     @Nonnull
     @Override
-    public Set<String> getGroupsWithRolesCreatedByUser(@Nonnull String userId) {
-        try (SqlSession session = sessionFactory.openWriteSession()) {
-            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
-            return mapper.getGroupsWithRolesCreatedByUser(userId);
-        }
+    public GroupIdsGetter getGroupIds() {
+        return new SqlGroupIdsGetter(sessionFactory);
     }
 
     @Nonnull

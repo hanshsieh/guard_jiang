@@ -4,7 +4,7 @@ import org.apache.commons.lang3.Validate;
 import org.apache.ibatis.session.SqlSession;
 import org.guard_jiang.Credential;
 import org.guard_jiang.CredentialUpdater;
-import org.guard_jiang.services.storage.sql.mappers.SqlStorageMapper;
+import org.guard_jiang.services.storage.sql.mappers.GuardAccountMapper;
 import org.guard_jiang.services.storage.sql.records.AccountRecord;
 
 import javax.annotation.Nonnull;
@@ -16,13 +16,13 @@ import java.io.IOException;
 public class SqlCredentialUpdater implements CredentialUpdater {
 
     private final AccountRecord accountRecord;
-    private final SqlAccount account;
+    private final SqlSessionFactory sqlSessionFactory;
 
     public SqlCredentialUpdater(
-            @Nonnull SqlAccount account,
+            @Nonnull SqlSessionFactory sqlSessionFactory,
             @Nonnull AccountRecord accountRecord) {
         this.accountRecord = accountRecord;
-        this.account = account;
+        this.sqlSessionFactory = sqlSessionFactory;
     }
 
     @Nonnull
@@ -59,14 +59,14 @@ public class SqlCredentialUpdater implements CredentialUpdater {
         Validate.notNull(accountRecord.getEmail(), "Email cannot be null");
         Validate.notNull(accountRecord.getPassword(), "Password cannot be null");
         Validate.notNull(accountRecord.getCertificate(), "Certificate cannot be null");
-        try (SqlSession session = account.getSqlSessionFactory().openWriteSession()) {
-            SqlStorageMapper mapper = session.getMapper(SqlStorageMapper.class);
+        try (SqlSession session = sqlSessionFactory.openWriteSession()) {
+            GuardAccountMapper mapper = session.getMapper(GuardAccountMapper.class);
             int nUpdated = mapper.updateGuardAccount(accountRecord);
             if (nUpdated <= 0) {
                 throw new IOException("The account doesn't exist");
             }
             session.commit();
         }
-        return new SqlCredential(account, accountRecord);
+        return new SqlCredential(sqlSessionFactory, accountRecord);
     }
 }
